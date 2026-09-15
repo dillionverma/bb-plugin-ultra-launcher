@@ -4,7 +4,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Icon } from "./ui/icon";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
-import { effortLabel, isActivePreset, presetSchema, type ModelPreset } from "../lib/presets";
+import { effortLabel, isActivePreset, parsePreset, type ModelPreset } from "../lib/presets";
 import type { PresetSelectionProps } from "../lib/model-picker";
 import type { ExperimentalProviderModelPickerValue } from "@get-bb/plugin-sdk";
 
@@ -65,9 +65,9 @@ export function QuickModelPicker(props: PresetPickerProps) {
   function saveDraft() {
     if (!editor || conflict) return;
     const { draft, presets, revision, isNew } = editor;
-    const parsed = presetSchema.safeParse({ ...draft, name: draft.name.trim() || `${draft.model} · ${effortLabel(draft.reasoningLevel)}`.slice(0, 80) });
-    if (!parsed.success) { setError("Choose a model to continue."); return; }
-    void persist(isNew ? [...presets, parsed.data] : presets.map((item) => item.id === draft.id ? parsed.data : item), revision);
+    const parsed = parsePreset({ ...draft, name: draft.name.trim() || `${draft.model} · ${effortLabel(draft.reasoningLevel)}`.slice(0, 80) });
+    if (parsed === null) { setError("Choose a model to continue."); return; }
+    void persist(isNew ? [...presets, parsed] : presets.map((item) => item.id === draft.id ? parsed : item), revision);
   }
 
   function inlineEditor() {

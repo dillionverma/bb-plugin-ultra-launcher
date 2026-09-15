@@ -3,10 +3,10 @@ import {
   EMPTY_PRESETS,
   isActivePreset,
   movePreset,
-  presetsSchema,
   type ModelPreset,
   type PresetState,
 } from "./presets";
+import { presetsSchema } from "./presets.schema";
 import { createPresetStore } from "./preset-store";
 const preset: ModelPreset = {
   id: "one",

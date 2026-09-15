@@ -1,4 +1,5 @@
-import { EMPTY_PRESETS, presetStateSchema, type ModelPreset, type PresetState } from "./presets";
+import { EMPTY_PRESETS, type ModelPreset, type PresetState } from "./presets";
+import { presetStateSchema } from "./presets.schema";
 
 export function createPresetStore(storage: {
   read(): Promise<unknown>;

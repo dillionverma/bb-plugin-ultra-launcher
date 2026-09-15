@@ -1,10 +1,11 @@
 import { z } from "zod";
+import { NO_SELECTION, type SelectedPreset } from "./selection";
 
-/** Which preset the Ultra Launcher dialog seeds the composer with. */
-export const selectedPresetSchema = z.object({ presetId: z.string().min(1).max(80).nullable() });
-export type SelectedPreset = z.infer<typeof selectedPresetSchema>;
-export const NO_SELECTION: SelectedPreset = { presetId: null };
-export const SELECTION_CHANNEL = "model-preset-selection";
+export { NO_SELECTION, SELECTION_CHANNEL, resolveSelected, type SelectedPreset } from "./selection";
+
+export const selectedPresetSchema: z.ZodType<SelectedPreset, unknown> = z.object({
+  presetId: z.string().min(1).max(80).nullable(),
+});
 
 /**
  * Remembers the last preset picked in the dialog. Kept apart from the preset
@@ -27,12 +28,4 @@ export function createSelectionStore(storage: {
     return next;
   }
   return { read, write };
-}
-
-/** The preset a dialog should seed: the remembered one, else the first row. */
-export function resolveSelected<T extends { id: string }>(
-  presets: readonly T[],
-  presetId: string | null,
-): T | null {
-  return presets.find((preset) => preset.id === presetId) ?? presets[0] ?? null;
 }

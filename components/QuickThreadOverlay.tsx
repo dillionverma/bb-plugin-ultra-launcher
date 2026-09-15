@@ -2,7 +2,7 @@ import { ConfiguredModelPicker } from "./ConfiguredModelPicker";
 import { EDIT_PRESETS_EVENT } from "../lib/presets";
 import { usePresets } from "../hooks/usePresets";
 import { useSelectedPreset } from "../hooks/useSelectedPreset";
-import { resolveSelected } from "../lib/selection-store";
+import { resolveSelected } from "../lib/selection";
 // The floating "quick new thread" dialog.
 //
 // Registered as an app overlay (app.slots.experimental_appOverlay), so it is
