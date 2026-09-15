@@ -1,6 +1,7 @@
 import { originalProviderLogos } from "../lib/provider-logos";
 import { useEffect } from "react";
-import { presetStateSchema, presetsSchema, type PresetState } from "../lib/presets";
+import type { PresetState } from "../lib/presets";
+import { presetStateSchema, presetsSchema } from "../lib/presets.schema";
 const key = "quick-thread:preview-presets:v2";
 export const samples: PresetState = { revision: 0, presets: [
   { id: "opus", name: "Opus 5", providerId: "claude", model: "opus-5", reasoningLevel: "xhigh", serviceTier: "default" },

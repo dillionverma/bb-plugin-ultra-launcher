@@ -7,7 +7,7 @@ import {
 } from "@get-bb/plugin-sdk/app";
 import type { ExperimentalProviderModelPickerValue } from "@get-bb/plugin-sdk";
 import { usePresets } from "../hooks/usePresets";
-import { EDIT_PRESETS_EVENT, effortLabel, presetSchema, type ModelPreset } from "../lib/presets";
+import { EDIT_PRESETS_EVENT, effortLabel, parsePreset, type ModelPreset } from "../lib/presets";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Field, FieldGroup, FieldLabel } from "./ui/field";
@@ -105,11 +105,11 @@ export function PresetSettings() {
           onSubmit={(event) => {
             event.preventDefault(); event.stopPropagation();
             if (saving || conflict) return;
-            const parsed = presetSchema.safeParse({ ...draft, name: draft.name.trim() || suggestedName(draft) });
-            if (!parsed.success) { setError("Choose a model to continue."); return; }
+            const parsed = parsePreset({ ...draft, name: draft.name.trim() || suggestedName(draft) });
+            if (parsed === null) { setError("Choose a model to continue."); return; }
             const next = existing
-              ? store.state.presets.map((item) => item.id === draft.id ? parsed.data : item)
-              : [...store.state.presets, parsed.data];
+              ? store.state.presets.map((item) => item.id === draft.id ? parsed : item)
+              : [...store.state.presets, parsed];
             void persist(next, editRevision, true);
           }}
         >
@@ -162,7 +162,8 @@ export function PresetSettings() {
                   </button>
                   <div className="max-w-full rounded-md" aria-label={`Model for ${preset.name}`}>
                     <ProviderModelPicker value={preset} disabled={locked} align="end" onChange={(value) => {
-                      const next = presetSchema.parse({ ...preset, ...value, serviceTier: value.serviceTier ?? "default" });
+                      const next = parsePreset({ ...preset, ...value, serviceTier: value.serviceTier ?? "default" });
+                      if (next === null) return;
                       if (next.providerId === preset.providerId && next.model === preset.model && next.reasoningLevel === preset.reasoningLevel && next.serviceTier === preset.serviceTier) return;
                       void persist(store.state.presets.map((item) => item.id === preset.id ? next : item));
                     }} />

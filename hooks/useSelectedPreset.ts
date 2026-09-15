@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
 import type { rpcContract } from "../server";
-import { SELECTION_CHANNEL } from "../lib/selection-store";
+import { SELECTION_CHANNEL } from "../lib/selection";
 
 /** The preset id the dialog last seeded, shared across windows. */
 export function useSelectedPreset() {

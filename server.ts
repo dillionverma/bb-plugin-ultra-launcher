@@ -1,4 +1,5 @@
-import { presetStateSchema, presetsSchema, PRESETS_CHANNEL } from "./lib/presets";
+import { PRESETS_CHANNEL } from "./lib/presets";
+import { presetStateSchema, presetsSchema } from "./lib/presets.schema";
 import { createPresetStore } from "./lib/preset-store";
 import { createSelectionStore, selectedPresetSchema, SELECTION_CHANNEL } from "./lib/selection-store";
 import { resolveDefaultPresets, type Catalog, type CatalogModel } from "./lib/default-presets";
