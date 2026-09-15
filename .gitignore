@@ -1,0 +1,16 @@
+dist/
+node_modules/
+
+preview-dist/
+*.tgz
+
+node_modules/
+dist/
+preview-dist/
+coverage/
+.env
+.env.*
+!.env.example
+.DS_Store
+*.log
+*.tgz

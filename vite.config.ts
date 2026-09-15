@@ -1,0 +1,2 @@
+import { defineConfig } from "vite";
+export default defineConfig({ resolve: { alias: { "@get-bb/plugin-sdk/app": new URL("./preview/sdk.tsx", import.meta.url).pathname } }, define: { __BB_PLUGIN_ID__: JSON.stringify("quick-thread") }, build: { outDir: "preview-dist", rollupOptions: { input: "preview/index.html" } }, server: { allowedHosts: ["dillion--5197.getbb.app"], host: "0.0.0.0", port: 5197, strictPort: true } });

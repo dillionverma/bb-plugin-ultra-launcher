@@ -1,0 +1,922 @@
+diff --git a/apps/app/src/components/plugin/PluginNewThreadComposer.test.tsx b/apps/app/src/components/plugin/PluginNewThreadComposer.test.tsx
+index f4b02ba..1cade4b 100644
+--- a/apps/app/src/components/plugin/PluginNewThreadComposer.test.tsx
++++ b/apps/app/src/components/plugin/PluginNewThreadComposer.test.tsx
+@@ -12,7 +12,7 @@ import {
+   act,
+   cleanup,
+   fireEvent,
+-  render,
++  render as renderWithoutQueryClient,
+   screen,
+   waitFor,
+ } from "@testing-library/react";
+@@ -57,9 +57,25 @@ import { PluginDetailPanelContext } from "./plugin-detail-navigation";
+ import { openPluginDetailsInWorkspace } from "./plugin-detail-opener";
+ import { PluginNewThreadComposer } from "./PluginNewThreadComposer";
+ 
++function render(
++  ui: ReactNode,
++  options?: Parameters<typeof renderWithoutQueryClient>[1],
++) {
++  const client = new QueryClient({
++    defaultOptions: { queries: { retry: false } },
++  });
++  return renderWithoutQueryClient(ui, {
++    wrapper: ({ children }) => (
++      <QueryClientProvider client={client}>{children}</QueryClientProvider>
++    ),
++    ...options,
++  });
++}
++
+ const mocks = vi.hoisted(() => ({
+   promptBoxProps: [] as Array<Record<string, any>>,
+   copyAttachments: vi.fn(),
++  executionOptions: vi.fn(),
+   uploadAttachment: vi.fn(),
+   projectThreads: [] as ThreadListEntry[],
+   sidebarNavigationSettled: true,
+@@ -136,7 +152,10 @@ vi.mock("@/hooks/queries/plugin-settings-queries", () => ({
+ }));
+ 
+ vi.mock("@/lib/sdk", () => ({
+-  sdk: { projects: { attachments: { copy: mocks.copyAttachments } } },
++  sdk: {
++    projects: { attachments: { copy: mocks.copyAttachments } },
++    system: { executionOptions: mocks.executionOptions },
++  },
+ }));
+ 
+ const PROJECT = makeProjectWithThreadsResponse({
+@@ -815,6 +834,164 @@ describe("PluginNewThreadComposer seeding", () => {
+     );
+   });
+ 
++  it("keeps the draft, environment and permissions when a custom picker changes the model", async () => {
++    const submitted: NewThreadRequest[] = [];
++    const CustomPicker = () => null;
++    render(
++      <MemoryRouter>
++        <PluginNewThreadComposer
++          experimental_ModelPicker={CustomPicker}
++          draftKey="custom-model-picker"
++          defaultProjectId={STORED_REQUEST.projectId}
++          defaultProviderId={STORED_REQUEST.providerId}
++          defaultModel={STORED_REQUEST.model}
++          defaultReasoningLevel={STORED_REQUEST.reasoningLevel}
++          defaultPermissionMode={STORED_REQUEST.permissionMode}
++          defaultEnvironment={STORED_REQUEST.environment}
++          initialPrompt="keep my draft"
++          onSubmit={(request) => {
++            submitted.push(request);
++          }}
++        />
++      </MemoryRouter>,
++    );
++    await waitFor(() => expect(latestPromptBoxProps().disabled).toBe(false));
++    expect(latestPromptBoxProps().execution.modelPicker).toBe(CustomPicker);
++    await act(async () =>
++      latestPromptBoxProps().execution.model.onChange("gpt-5.6"),
++    );
++    await waitFor(() =>
++      expect(latestPromptBoxProps().execution.model.selected).toBe("gpt-5.6"),
++    );
++    await submit();
++    expect(submitted).toHaveLength(1);
++    expect(submitted[0]?.model).toBe("gpt-5.6");
++    expect(submitted[0]?.environment).toEqual(STORED_REQUEST.environment);
++    expect(submitted[0]?.permissionMode).toBe(STORED_REQUEST.permissionMode);
++    expect(submitted[0]?.input).toEqual([
++      { type: "text", text: "keep my draft", mentions: [] },
++    ]);
++  });
++
++  it("applies a cross-provider preset atomically while preserving the draft and workspace", async () => {
++    const submitted: NewThreadRequest[] = [];
++    renderComposer(
++      STORED_REQUEST,
++      (request) => {
++        submitted.push(request);
++      },
++      "atomic-preset",
++    );
++    await waitFor(() => expect(latestPromptBoxProps().disabled).toBe(false));
++    mocks.executionOptions.mockResolvedValueOnce({
++      providers: [
++        { id: "codex", capabilities: { supportsServiceTier: false } },
++      ],
++      models: [
++        {
++          model: "gpt-5.6",
++          supportedReasoningEfforts: [{ reasoningEffort: "low" }],
++        },
++      ],
++      modelLoadError: null,
++    });
++    await act(async () =>
++      latestPromptBoxProps().execution.onPresetSelect({
++        providerId: "codex",
++        model: "gpt-5.6",
++        reasoningLevel: "low",
++        serviceTier: "default",
++      }),
++    );
++    await waitFor(() =>
++      expect(latestPromptBoxProps().execution.provider.selectedId).toBe(
++        "codex",
++      ),
++    );
++    expect(mocks.executionOptions).toHaveBeenLastCalledWith(
++      expect.objectContaining({ hostId: "host_1", providerId: "codex" }),
++    );
++    await submit();
++    expect(submitted).toHaveLength(1);
++    expect(submitted[0]).toMatchObject({
++      providerId: "codex",
++      model: "gpt-5.6",
++      reasoningLevel: "low",
++      permissionMode: STORED_REQUEST.permissionMode,
++      environment: STORED_REQUEST.environment,
++      input: STORED_REQUEST.input,
++    });
++  });
++
++  it("rejects an unavailable preset without changing the previous execution selection", async () => {
++    renderComposer(STORED_REQUEST, () => {}, "unavailable-preset");
++    await waitFor(() => expect(latestPromptBoxProps().disabled).toBe(false));
++    mocks.executionOptions.mockResolvedValueOnce({
++      providers: [],
++      models: [],
++      modelLoadError: null,
++    });
++    await act(async () => {
++      await expect(
++        latestPromptBoxProps().execution.onPresetSelect({
++          providerId: "codex",
++          model: "retired",
++          reasoningLevel: "high",
++          serviceTier: "default",
++        }),
++      ).rejects.toThrow("unavailable");
++    });
++    expect(latestPromptBoxProps().execution.provider.selectedId).toBe(
++      STORED_REQUEST.providerId,
++    );
++    expect(latestPromptBoxProps().execution.model.selected).toBe(
++      STORED_REQUEST.model,
++    );
++    expect(latestPromptBoxProps().value).toBe("review every PR for slop");
++  });
++
++  it.each([
++    {
++      reasoningLevel: "ultra",
++      serviceTier: "default",
++      message: "reasoning effort",
++    },
++    { reasoningLevel: "high", serviceTier: "fast", message: "fast mode" },
++  ])(
++    "rejects an unsupported preset $message without partially switching providers",
++    async (selection) => {
++      renderComposer(STORED_REQUEST, () => {}, "unsupported-preset");
++      await waitFor(() => expect(latestPromptBoxProps().disabled).toBe(false));
++      mocks.executionOptions.mockResolvedValueOnce({
++        providers: [
++          { id: "codex", capabilities: { supportsServiceTier: false } },
++        ],
++        models: [
++          {
++            model: "gpt-5.6",
++            supportedReasoningEfforts: [{ reasoningEffort: "high" }],
++          },
++        ],
++        modelLoadError: null,
++      });
++      await act(async () => {
++        await expect(
++          latestPromptBoxProps().execution.onPresetSelect({
++            providerId: "codex",
++            model: "gpt-5.6",
++            ...selection,
++          }),
++        ).rejects.toThrow(selection.message);
++      });
++      expect(latestPromptBoxProps().execution.provider.selectedId).toBe(
++        STORED_REQUEST.providerId,
++      );
++      expect(latestPromptBoxProps().execution.model.selected).toBe(
++        STORED_REQUEST.model,
++      );
++    },
++  );
++
+   it("round-trips a stored request submitted untouched", async () => {
+     const submitted: NewThreadRequest[] = [];
+     renderComposer(
+diff --git a/apps/app/src/components/plugin/PluginNewThreadComposer.tsx b/apps/app/src/components/plugin/PluginNewThreadComposer.tsx
+index 3fde58e..8669f1c 100644
+--- a/apps/app/src/components/plugin/PluginNewThreadComposer.tsx
++++ b/apps/app/src/components/plugin/PluginNewThreadComposer.tsx
+@@ -11,6 +11,7 @@ import {
+ import { PluginContext } from "@/components/plugin/plugin-context";
+ 
+ export function PluginNewThreadComposer({
++  experimental_ModelPicker,
+   defaultProjectId,
+   defaultProviderId,
+   defaultModel,
+@@ -78,6 +79,7 @@ export function PluginNewThreadComposer({
+           )}
+         >
+           {renderPromptBox({
++            modelPicker: experimental_ModelPicker,
+             placeholder,
+             allowNoProject: true,
+           })}
+diff --git a/apps/app/src/components/promptbox/ExecutionControls.tsx b/apps/app/src/components/promptbox/ExecutionControls.tsx
+index 5a20873..beab19f 100644
+--- a/apps/app/src/components/promptbox/ExecutionControls.tsx
++++ b/apps/app/src/components/promptbox/ExecutionControls.tsx
+@@ -1,4 +1,8 @@
+-import { memo } from "react";
++import { Component, memo, type ReactNode } from "react";
++import type {
++  NewThreadComposerProps,
++  ExperimentalProviderModelPickerValue,
++} from "@get-bb/plugin-sdk";
+ import type { PermissionMode, ReasoningLevel, ServiceTier } from "@bb/domain";
+ import type {
+   SystemExecutionOptionsModelLoadError,
+@@ -26,6 +30,7 @@ interface ExecutionModelConfig {
+   options: readonly ModelPickerOption[];
+   moreOptions: readonly ModelPickerOption[];
+   isLoading: boolean;
++  catalogIsVerified?: boolean;
+   loadFailed: boolean;
+   loadError?: SystemExecutionOptionsModelLoadError | null;
+   onChange: (value: string) => void;
+@@ -53,6 +58,10 @@ export interface ExecutionPermissionConfig {
+ }
+ 
+ export interface ExecutionControlsProps {
++  modelPicker?: NewThreadComposerProps["experimental_ModelPicker"];
++  onPresetSelect?: (
++    selection: ExperimentalProviderModelPickerValue,
++  ) => Promise<void>;
+   providerRouting?: SystemProvidersQuery;
+   provider: ExecutionProviderConfig;
+   model: ExecutionModelConfig;
+@@ -63,6 +72,8 @@ export interface ExecutionControlsProps {
+ }
+ 
+ export const ExecutionControls = memo(function ExecutionControls({
++  modelPicker: CustomPicker,
++  onPresetSelect,
+   provider,
+   providerRouting,
+   model,
+@@ -88,38 +99,122 @@ export const ExecutionControls = memo(function ExecutionControls({
+     selectedProviderId.length > 0 ||
+     handoff !== undefined;
+ 
++  const fallback = showModelPicker ? (
++    <ModelReasoningPicker
++      providerOptions={provider.options ?? []}
++      providerRouting={providerRouting}
++      selectedProviderId={selectedProviderId}
++      onSelectedProviderChange={provider.onChange}
++      hasMultipleProviders={provider.hasMultiple ?? false}
++      modelValue={model.active?.model ?? model.selected}
++      modelOptions={model.options}
++      moreModelOptions={model.moreOptions}
++      modelIsLoading={model.isLoading}
++      modelLoadFailed={model.loadFailed}
++      modelLoadError={model.loadError}
++      onModelChange={model.onChange}
++      formatModelLabel={formatModelLabel}
++      reasoningValue={reasoning.value}
++      reasoningOptions={reasoning.options}
++      onReasoningChange={reasoning.onChange}
++      fastModeEnabled={serviceTier?.value === "fast"}
++      onFastModeChange={(enabled) =>
++        handleServiceTierChange(enabled ? "fast" : "default")
++      }
++      showFastModeToggle={serviceTier?.supported ?? false}
++      serviceTierSupportByProvider={serviceTier?.supportByProvider}
++      fastModeLabel={serviceTier?.fastLabel}
++      muted
++      disabled={disabled}
++      handoff={handoff}
++    />
++  ) : null;
++
++  if (!CustomPicker) return fallback;
++  const models = [...model.options, ...model.moreOptions];
++  const ready =
++    !disabled &&
++    model.catalogIsVerified === true &&
++    !model.isLoading &&
++    !model.loadFailed;
+   return (
+-    <>
+-      {showModelPicker ? (
+-        <ModelReasoningPicker
+-          providerOptions={provider.options ?? []}
+-          providerRouting={providerRouting}
+-          selectedProviderId={selectedProviderId}
+-          onSelectedProviderChange={provider.onChange}
+-          hasMultipleProviders={provider.hasMultiple ?? false}
+-          modelValue={model.active?.model ?? model.selected}
+-          modelOptions={model.options}
+-          moreModelOptions={model.moreOptions}
+-          modelIsLoading={model.isLoading}
+-          modelLoadFailed={model.loadFailed}
+-          modelLoadError={model.loadError}
+-          onModelChange={model.onChange}
+-          formatModelLabel={formatModelLabel}
+-          reasoningValue={reasoning.value}
+-          reasoningOptions={reasoning.options}
+-          onReasoningChange={reasoning.onChange}
+-          fastModeEnabled={serviceTier?.value === "fast"}
+-          onFastModeChange={(enabled) =>
+-            handleServiceTierChange(enabled ? "fast" : "default")
+-          }
+-          showFastModeToggle={serviceTier?.supported ?? false}
+-          serviceTierSupportByProvider={serviceTier?.supportByProvider}
+-          fastModeLabel={serviceTier?.fastLabel}
+-          muted
+-          disabled={disabled}
+-          handoff={handoff}
+-        />
+-      ) : null}
+-    </>
++    <PickerBoundary fallback={fallback}>
++      <CustomPicker
++        providerId={selectedProviderId}
++        providers={provider.options ?? []}
++        model={model.selected}
++        models={models}
++        reasoningLevel={reasoning.value}
++        reasoningOptions={reasoning.options}
++        serviceTier={serviceTier?.value}
++        supportsServiceTier={serviceTier?.supported ?? false}
++        isLoading={model.isLoading}
++        error={
++          model.loadFailed
++            ? "Could not load models. Try another provider or reopen the dialog."
++            : null
++        }
++        disabled={disabled ?? false}
++        canSelectModel={ready}
++        canChangeProvider={!disabled && canSwitchProviders}
++        onPresetSelect={async (selection) => {
++          if (disabled || !onPresetSelect)
++            throw new Error("Preset selection is unavailable.");
++          if (
++            selection.providerId !== selectedProviderId &&
++            !canSwitchProviders
++          )
++            throw new Error("The provider is locked.");
++          await onPresetSelect(selection);
++        }}
++        onProviderChange={(id) => {
++          if (
++            !disabled &&
++            canSwitchProviders &&
++            provider.options?.some(
++              (option) => option.value === id && !option.disabled,
++            )
++          )
++            provider.onChange?.(id);
++        }}
++        onModelChange={(id) => {
++          if (
++            ready &&
++            models.some((option) => option.value === id && !option.disabled)
++          )
++            model.onChange(id);
++        }}
++        onReasoningChange={(level) => {
++          if (
++            ready &&
++            reasoning.options.some(
++              (option) => option.value === level && !option.disabled,
++            )
++          )
++            reasoning.onChange(level);
++        }}
++        onServiceTierChange={(tier) => {
++          if (
++            ready &&
++            serviceTier?.supported &&
++            (tier === "fast" || tier === "default")
++          )
++            serviceTier.onChange(tier);
++        }}
++      />
++    </PickerBoundary>
+   );
+ });
++
++class PickerBoundary extends Component<
++  { children: ReactNode; fallback: ReactNode },
++  { failed: boolean }
++> {
++  override state = { failed: false };
++  static getDerivedStateFromError() {
++    return { failed: true };
++  }
++  override render() {
++    return this.state.failed ? this.props.fallback : this.props.children;
++  }
++}
+diff --git a/apps/app/src/components/promptbox/NewThreadComposer.tsx b/apps/app/src/components/promptbox/NewThreadComposer.tsx
+index 06a59eb..77f7376 100644
+--- a/apps/app/src/components/promptbox/NewThreadComposer.tsx
++++ b/apps/app/src/components/promptbox/NewThreadComposer.tsx
+@@ -1,3 +1,9 @@
++import { z } from "zod";
++import { reasoningLevelSchema, serviceTierSchema } from "@bb/domain";
++import { useQueryClient } from "@tanstack/react-query";
++import { systemExecutionOptionsQueryKey } from "@/hooks/queries/query-keys";
++import type { ExperimentalProviderModelPickerValue } from "@get-bb/plugin-sdk";
++import type { NewThreadComposerProps as PluginComposerProps } from "@get-bb/plugin-sdk";
+ import { ProviderRequirementBanner } from "./banner/ProviderRequirementBanner";
+ import { Button } from "@bb/shared-ui/button";
+ import {
+@@ -112,6 +118,13 @@ import {
+ 
+ type NewThreadComposerSelectionScope = "new-thread" | "component-local";
+ 
++const presetSelectionSchema = z.object({
++  providerId: z.string().min(1),
++  model: z.string().min(1),
++  reasoningLevel: reasoningLevelSchema,
++  serviceTier: serviceTierSchema.optional(),
++});
++
+ export interface NewThreadComposerSeed {
+   providerId?: string;
+   model?: string;
+@@ -129,6 +142,7 @@ interface NewThreadComposerLocks {
+ }
+ 
+ interface NewThreadComposerPromptOptions {
++  modelPicker?: PluginComposerProps["experimental_ModelPicker"];
+   id?: string;
+   placeholder?: string;
+   autoFocus?: boolean;
+@@ -409,6 +423,7 @@ export function NewThreadComposer({
+   focusRequest,
+   children,
+ }: NewThreadComposerProps) {
++  const queryClient = useQueryClient();
+   const navigate = useNavigate();
+   const [localPromptBoxFocusRequest, setLocalPromptBoxFocusRequest] = useState<
+     number | null
+@@ -875,7 +890,7 @@ export function NewThreadComposer({
+           (provider) =>
+             provider.id === selectedEnvironmentProvider?.id &&
+             provider.availability?.status !== "unavailable",
+-          ) ?? false
++        ) ?? false
+     );
+   const handleSelectProvider = useCallback(
+     (provider: SystemEnvironmentProvider, hostId: string | null) => {
+@@ -1178,6 +1193,22 @@ export function NewThreadComposer({
+   const [isUploading, setIsUploading] = useState(false);
+   const [isCopyingAttachments, setIsCopyingAttachments] = useState(false);
+   const [isSubmitting, setIsSubmitting] = useState(false);
++  const [isApplyingPreset, setIsApplyingPreset] = useState(false);
++  const presetPendingRef = useRef(false);
++  const presetScope = JSON.stringify([
++    projectId,
++    executionOptionsRouting,
++    effectiveEnvironmentValue,
++  ]);
++  const presetScopeRef = useRef(presetScope);
++  presetScopeRef.current = presetScope;
++  const presetMountedRef = useRef(true);
++  useEffect(() => {
++    presetMountedRef.current = true;
++    return () => {
++      presetMountedRef.current = false;
++    };
++  }, []);
+   const isUploadingRef = useRef(false);
+   const isCopyingAttachmentsRef = useRef(false);
+   const isSubmittingRef = useRef(false);
+@@ -1415,24 +1446,27 @@ export function NewThreadComposer({
+     : (selectedEnvironment ??
+       (selectionScope === "new-thread" ? seed?.environment : undefined) ??
+       null);
+-  const submitDisabledReason = resolveNewThreadSubmitDisabledReason({
+-    environmentProviderInputsBlocker:
+-      machineProviderInputs.blockedReason ?? environmentProviderInputsBlocker,
+-    environmentSetupRequiredReason:
+-      environmentSetupRequiredReason ?? machineServerAccessReason,
+-    isCopyingAttachments,
+-    isLoadingModels,
+-    isSubmitting,
+-    isUploading,
+-    modelLoadError,
+-    projectDefaultsStatus: projectDefaultsState.status,
+-    projectDefaultsUnavailable,
+-    promptInputEmpty: promptInput.length === 0,
+-    providerDisplayName: selectedProviderDisplayName,
+-    selectedProviderId,
+-    selectedThreadModel,
+-    submissionEnvironmentUnavailable: submissionEnvironment === null,
+-  });
++  const submitDisabledReason = isApplyingPreset
++    ? "Selecting preset..."
++    : resolveNewThreadSubmitDisabledReason({
++        environmentProviderInputsBlocker:
++          machineProviderInputs.blockedReason ??
++          environmentProviderInputsBlocker,
++        environmentSetupRequiredReason:
++          environmentSetupRequiredReason ?? machineServerAccessReason,
++        isCopyingAttachments,
++        isLoadingModels,
++        isSubmitting,
++        isUploading,
++        modelLoadError,
++        projectDefaultsStatus: projectDefaultsState.status,
++        projectDefaultsUnavailable,
++        promptInputEmpty: promptInput.length === 0,
++        providerDisplayName: selectedProviderDisplayName,
++        selectedProviderId,
++        selectedThreadModel,
++        submissionEnvironmentUnavailable: submissionEnvironment === null,
++      });
+   const submitDraft = useCallback(
+     async (
+       blockedReason: string | null,
+@@ -1444,6 +1478,7 @@ export function NewThreadComposer({
+       if (
+         blockedReason !== null ||
+         submitDisabledReason !== null ||
++        presetPendingRef.current ||
+         input.length === 0 ||
+         isSubmittingRef.current ||
+         projectDefaultsUnavailable ||
+@@ -1567,6 +1602,93 @@ export function NewThreadComposer({
+     [changeEnvironment],
+   );
+ 
++  const handlePresetSelect = useCallback(
++    async (input: ExperimentalProviderModelPickerValue) => {
++      const selection = presetSelectionSchema.parse(input);
++      if (
++        presetPendingRef.current ||
++        isSubmittingRef.current ||
++        isUploading ||
++        isCopyingAttachments
++      )
++        throw new Error("Wait for the current operation to finish.");
++      if (
++        !providerOptions.some(
++          (provider) =>
++            provider.value === selection.providerId && !provider.disabled,
++        )
++      )
++        throw new Error("This preset's provider is unavailable.");
++      presetPendingRef.current = true;
++      setIsApplyingPreset(true);
++      const scope = presetScope;
++      try {
++        const routing = {
++          environmentId: executionOptionsRouting.environmentId,
++          hostId: executionOptionsRouting.hostId,
++          providerId: selection.providerId,
++        };
++        const catalog = await queryClient.fetchQuery({
++          queryKey: systemExecutionOptionsQueryKey({
++            ...routing,
++            environmentId: routing.environmentId ?? null,
++            hostId: routing.hostId ?? null,
++          }),
++          queryFn: ({ signal }) =>
++            sdk.system.executionOptions({ ...routing, signal }),
++          staleTime: 0,
++        });
++        if (!presetMountedRef.current || presetScopeRef.current !== scope)
++          throw new Error("The workspace changed. Select the preset again.");
++        const provider = catalog.providers.find(
++          (provider) => provider.id === selection.providerId,
++        );
++        const model = catalog.models.find(
++          (model) => model.model === selection.model,
++        );
++        if (catalog.modelLoadError || !provider || !model)
++          throw new Error(
++            "This preset's model is unavailable on the selected machine. Edit the preset or choose another.",
++          );
++        if (
++          model.supportedReasoningEfforts.length &&
++          !model.supportedReasoningEfforts.some(
++            (effort) => effort.reasoningEffort === selection.reasoningLevel,
++          )
++        )
++          throw new Error(
++            "This preset's reasoning effort is no longer supported. Edit the preset.",
++          );
++        if (
++          selection.serviceTier === "fast" &&
++          !provider.capabilities.supportsServiceTier
++        )
++          throw new Error("This preset's provider does not support fast mode.");
++        snapshotDraftBeforeOptionChange();
++        setProviderModelReasoning(selection);
++        setServiceTier(
++          provider.capabilities.supportsServiceTier
++            ? (selection.serviceTier ?? "default")
++            : undefined,
++        );
++      } finally {
++        presetPendingRef.current = false;
++        if (presetMountedRef.current) setIsApplyingPreset(false);
++      }
++    },
++    [
++      executionOptionsRouting,
++      isCopyingAttachments,
++      isUploading,
++      presetScope,
++      providerOptions,
++      queryClient,
++      setProviderModelReasoning,
++      setServiceTier,
++      snapshotDraftBeforeOptionChange,
++    ],
++  );
++
+   const renderPromptBox = useCallback(
+     (options: NewThreadComposerPromptOptions) => {
+       const locks = options.locks ?? {};
+@@ -1710,6 +1832,13 @@ export function NewThreadComposer({
+             showChevronWhenDisabled: !locks.project,
+           }}
+           execution={{
++            modelPicker: options.modelPicker,
++            onPresetSelect: handlePresetSelect,
++            disabled:
++              isSubmitting ||
++              isApplyingPreset ||
++              isUploading ||
++              isCopyingAttachments,
+             providerRouting: executionOptionsRouting,
+             provider: {
+               options: providerOptions,
+@@ -1723,6 +1852,7 @@ export function NewThreadComposer({
+               options: modelOptions,
+               moreOptions: moreModelOptions,
+               isLoading: isLoadingModels,
++              catalogIsVerified: creationOptions.modelCatalogIsVerified,
+               loadFailed: modelLoadFailed,
+               loadError: modelLoadError,
+               onChange: handleModelChange,
+@@ -1745,6 +1875,9 @@ export function NewThreadComposer({
+     },
+     [
+       activeModel,
++      creationOptions.modelCatalogIsVerified,
++      handlePresetSelect,
++      isApplyingPreset,
+       attachmentError,
+       commandSuggestions,
+       currentDraft,
+diff --git a/docs/api_to_audit.md b/docs/api_to_audit.md
+index 0d0582a..a8e37aa 100644
+--- a/docs/api_to_audit.md
++++ b/docs/api_to_audit.md
+@@ -3015,3 +3015,23 @@ same-id isolation and legacy override fallback,
+ asset-vs-glyph precedence, cross-plugin overrides, reload/error/recursion behavior,
+ accessibility and theme rendering on desktop and mobile. Keep metadata fetching
+ and plugin branding separate from provider artwork resolution.
++
++## New-thread model picker replacement
++
++`NewThreadComposerProps.experimental_ModelPicker` accepts a stable component of
++`ExperimentalNewThreadModelPickerProps`. It replaces only the execution picker
++in that composer. The host supplies its routed provider/model catalog and checks
++actions against verified, enabled options. Draft, project, environment and
++permissions remain host-owned; no seed props change. A rendering exception
++restores the native picker. No new CLI command is needed: this is rendering
++customization of the existing thread creation capability.
++
++Stabilization requires routed catalog/loading/error tests, invalid-action tests,
++draft/selection preservation, plugin crash fallback, and real desktop/mobile
++plugin adoption.
++
++The picker also receives `onPresetSelect(selection): Promise<void>` for complete
++provider/model/reasoning/tier presets. It validates against a fresh catalog for
++the current host/environment before applying all fields together. Catalog
++failures, unsupported efforts/fast mode, and routing changes reject without
++applying the preset. Submission is blocked while the preset is being checked.
+diff --git a/packages/plugin-api-map/src/surfaces.ts b/packages/plugin-api-map/src/surfaces.ts
+index ef1ad29..6283645 100644
+--- a/packages/plugin-api-map/src/surfaces.ts
++++ b/packages/plugin-api-map/src/surfaces.ts
+@@ -1067,6 +1067,7 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
+           "Renders bb's conversation, prompt box, and shared app icons inside plugin pages. With this, a plugin can:",
+         bullets: [
+           "Embed the thread view and the new-thread prompt box as components",
++          "Replace one new-thread composer model picker with experimental_ModelPicker: a stable component receives the routed catalog, current selection and validated actions. BB retains draft, environment and permission state. Rendering failures fall back to the built-in picker. onPresetSelect validates a complete preset on the routed host before applying provider, model, reasoning and service tier together.",
+           "Render message text with the same Markdown renderer bb uses",
+           "Resolve document links and images beside a workspace or thread-storage file with Markdown.experimental_document",
+           "Inherit bb's styling, so embedded UI matches the rest of the app",
+@@ -1090,6 +1091,8 @@ export const SURFACE_GROUPS: SurfaceGroup[] = [
+           "Markdown",
+           "MarkdownProps.experimental_document",
+           "experimental_NewThreadComposer",
++          "NewThreadComposerProps.experimental_ModelPicker",
++          "ExperimentalNewThreadModelPickerProps",
+         ],
+         firstParty: ["Side chat", "Provider Usage", "Tasks"],
+       },
+diff --git a/packages/plugin-sdk/src/app-contract.ts b/packages/plugin-sdk/src/app-contract.ts
+index 580ddd0..f537434 100644
+--- a/packages/plugin-sdk/src/app-contract.ts
++++ b/packages/plugin-sdk/src/app-contract.ts
+@@ -2280,7 +2280,51 @@ export interface NewThreadRequest {
+  * It is the create-side counterpart to `ThreadChat`: same deliberate
+  * exception to the no-host-components rule (§5.5), same additive versioning.
+  */
++/** Host-owned catalog and actions for a custom new-thread model picker. */
++export interface ExperimentalNewThreadModelPickerProps {
++  providerId: string;
++  providers: readonly { value: string; label: string; disabled?: boolean }[];
++  model: string;
++  models: readonly {
++    value: string;
++    label: string;
++    description?: string;
++    disabled?: boolean;
++  }[];
++  reasoningLevel: ReasoningLevel;
++  reasoningOptions: readonly {
++    value: ReasoningLevel;
++    label: string;
++    disabled?: boolean;
++  }[];
++  serviceTier?: ServiceTier;
++  supportsServiceTier: boolean;
++  isLoading: boolean;
++  error: string | null;
++  disabled: boolean;
++  /** False until the routed provider catalog is verified. */
++  canSelectModel: boolean;
++  canChangeProvider: boolean;
++  /** Actions ignore unknown or disabled options; BB reconciles capabilities. */
++  /** Validate a complete preset on the routed host, then apply it atomically.
++   * Rejects unavailable models/efforts and leaves the selection unchanged.
++   */
++  onPresetSelect(
++    selection: ExperimentalProviderModelPickerValue,
++  ): Promise<void>;
++  onProviderChange(providerId: string): void;
++  onModelChange(model: string): void;
++  onReasoningChange(level: ReasoningLevel): void;
++  onServiceTierChange(tier: ServiceTier): void;
++}
++
+ export interface NewThreadComposerProps {
++  /** Replace only this composer's picker. BB owns catalogs, state and validation.
++   * Use a stable component reference. A rendering failure falls back to BB's picker.
++   * Older hosts ignore this prop and keep their built-in picker.
++   */
++  experimental_ModelPicker?: ComponentType<ExperimentalNewThreadModelPickerProps>;
++
+   /**
+    * Seeds the project picker. The user can change it, including choosing
+    * "Don't work in a project"; see {@link NewThreadRequest.projectId} for the
+diff --git a/apps/app/src/components/promptbox/ExecutionControls.custom-picker.test.tsx b/apps/app/src/components/promptbox/ExecutionControls.custom-picker.test.tsx
+new file mode 100644
+index 0000000..cf2176b
+--- /dev/null
++++ b/apps/app/src/components/promptbox/ExecutionControls.custom-picker.test.tsx
+@@ -0,0 +1,122 @@
++// @vitest-environment jsdom
++import { cleanup, render } from "@testing-library/react";
++import { afterEach, describe, expect, it, vi } from "vitest";
++import type { ExperimentalNewThreadModelPickerProps } from "@get-bb/plugin-sdk";
++import {
++  ExecutionControls,
++  type ExecutionControlsProps,
++} from "./ExecutionControls";
++
++vi.mock("@/hooks/useThreadCreationOptions", () => ({
++  formatModelLabel: (value: string) => value,
++}));
++vi.mock("@/components/pickers/ModelReasoningPicker", () => ({
++  ModelReasoningPicker: () => <div>Native picker</div>,
++}));
++afterEach(() => {
++  cleanup();
++  vi.restoreAllMocks();
++});
++
++function controls(): ExecutionControlsProps {
++  return {
++    provider: {
++      selectedId: "codex",
++      options: [
++        { value: "codex", label: "Codex" },
++        { value: "claude", label: "Claude" },
++      ],
++      hasMultiple: true,
++      onChange: vi.fn(),
++    },
++    model: {
++      selected: "astra",
++      options: [
++        { value: "astra", label: "Astra" },
++        { value: "blocked", label: "Blocked", disabled: true },
++      ],
++      moreOptions: [],
++      isLoading: false,
++      loadFailed: false,
++      catalogIsVerified: true,
++      onChange: vi.fn(),
++    },
++    reasoning: {
++      value: "medium",
++      options: [
++        { value: "medium", label: "Medium" },
++        { value: "high", label: "High" },
++      ],
++      onChange: vi.fn(),
++    },
++    serviceTier: { supported: true, value: "default", onChange: vi.fn() },
++  };
++}
++
++describe("custom new-thread picker boundary", () => {
++  it("rejects unknown and disabled choices and blocks actions for unverified catalogs", () => {
++    const captured: ExperimentalNewThreadModelPickerProps[] = [];
++    const Custom = (props: ExperimentalNewThreadModelPickerProps) => {
++      captured.push(props);
++      return null;
++    };
++    const config = controls();
++    const view = render(<ExecutionControls {...config} modelPicker={Custom} />);
++    let actions = captured.at(-1)!;
++    actions.onModelChange("missing");
++    actions.onModelChange("blocked");
++    actions.onProviderChange("missing");
++    expect(config.model.onChange).not.toHaveBeenCalled();
++    expect(config.provider.onChange).not.toHaveBeenCalled();
++    actions.onModelChange("astra");
++    expect(config.model.onChange).toHaveBeenCalledExactlyOnceWith("astra");
++    view.rerender(
++      <ExecutionControls
++        {...config}
++        model={{ ...config.model, catalogIsVerified: false }}
++        modelPicker={Custom}
++      />,
++    );
++    actions = captured.at(-1)!;
++    actions.onModelChange("astra");
++    actions.onReasoningChange("high");
++    actions.onServiceTierChange("fast");
++    expect(config.model.onChange).toHaveBeenCalledTimes(1);
++    expect(config.reasoning.onChange).not.toHaveBeenCalled();
++    expect(config.serviceTier?.onChange).not.toHaveBeenCalled();
++  });
++  it("does not remount custom UI when switching providers and respects provider locks", () => {
++    const captured: ExperimentalNewThreadModelPickerProps[] = [];
++    const Custom = (props: ExperimentalNewThreadModelPickerProps) => {
++      captured.push(props);
++      return <input defaultValue="search" />;
++    };
++    const config = controls();
++    const view = render(<ExecutionControls {...config} modelPicker={Custom} />);
++    const input = view.getByRole("textbox");
++    view.rerender(
++      <ExecutionControls
++        {...config}
++        provider={{
++          ...config.provider,
++          selectedId: "claude",
++          onChange: undefined,
++        }}
++        modelPicker={Custom}
++      />,
++    );
++    expect(view.getByRole("textbox")).toBe(input);
++    captured.at(-1)!.onProviderChange("codex");
++    expect(config.provider.onChange).not.toHaveBeenCalled();
++  });
++  it("falls back to the native picker when the plugin renderer throws", () => {
++    vi.spyOn(console, "error").mockImplementation(() => {});
++    function Broken(): never {
++      throw new Error("plugin failed");
++    }
++    const view = render(
++      <ExecutionControls {...controls()} modelPicker={Broken} />,
++    );
++    expect(view.getByText("Native picker")).toBeTruthy();
++  });
++});
