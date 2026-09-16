@@ -3,6 +3,7 @@ import { EDIT_PRESETS_EVENT } from "../lib/presets";
 import { usePresets } from "../hooks/usePresets";
 import { useSelectedPreset } from "../hooks/useSelectedPreset";
 import { resolveSelected } from "../lib/selection";
+import { submitHostComposer } from "../lib/submit-composer";
 // The floating "quick new thread" dialog.
 //
 // Registered as an app overlay (app.slots.experimental_appOverlay), so it is
@@ -18,6 +19,9 @@ import { resolveSelected } from "../lib/selection";
 //   Enter / "Create"             -> create the thread and navigate to it
 //   Ctrl/Cmd+Enter / "Background" -> create the thread, stay where you are,
 //                                    show a toast with an Open action
+// Both buttons submit the host composer's own form (lib/submit-composer.ts),
+// which is the one path that works on every viewport: on a phone the host
+// treats Enter as a newline, so faking a keypress would do nothing there.
 //
 // Model presets: stock BB has no slot for replacing the composer's model
 // picker, so the dialog does it from the outside — it hides the host button
@@ -152,6 +156,19 @@ const PRESET_PICKER_CSS = `
 [data-quick-thread-presets][data-presentation="floating"] [data-promptbox-action-row] { padding-left: 14rem; }
 `;
 
+// Compact viewport, plain CSS. The bottom sheet is capped at
+// 92dvh minus the software keyboard (the shell publishes the keyboard height
+// as --bb-drawer-keyboard-inset on the panel), and the card's header, footer,
+// handle and safe-area padding take roughly 18rem of that. The editor
+// scroller gets whatever is left, so the footer with Create never ends up
+// below the keyboard where it cannot be tapped. The 5rem floor keeps the
+// editor usable on very short viewports; the sheet scrolls past it instead.
+const DRAWER_CSS = `
+[data-quick-thread-presets][data-presentation="drawer"] form .overflow-y-auto:has([contenteditable]) {
+  max-height: max(5rem, min(38dvh, calc(92dvh - var(--bb-drawer-keyboard-inset, 0px) - 18rem)));
+}
+`;
+
 // Compact-viewport overrides layered on top of COMPOSER_RESTYLE. The footer
 // becomes two rows: the presets trigger gets the upper row to itself (the host
 // action row reserves it with top padding), and the lower row holds the host
@@ -162,7 +179,7 @@ const COMPOSER_RESTYLE_DRAWER = [
   // Shorter editor so the sheet fits above the keyboard; the sheet itself is
   // capped by the shell, so the editor scrolls internally past this.
   "[&_form_[contenteditable]]:min-h-[6.5rem]",
-  "[&_form_.overflow-y-auto:has([contenteditable])]:max-h-[38dvh]",
+  // (The editor scroller's max-height is keyboard-aware; see DRAWER_CSS.)
   "[&_form_.overflow-y-auto:has([contenteditable])]:px-4",
   "[&_form_.overflow-y-auto:has([contenteditable])]:pt-4",
   "[&_form_[role=textbox]]:text-base",
@@ -270,10 +287,20 @@ export function QuickThreadOverlay() {
   modeRef.current = mode;
   const wrapperRef = useRef<HTMLDivElement>(null);
 
+  const scopeProps = usePortalScopeProps();
+  const { presentation } = useResponsiveOverlayBehavior();
+  const isDrawer = presentation === "drawer";
+  const isDrawerRef = useRef(isDrawer);
+  isDrawerRef.current = isDrawer;
+
+  // Floating card: focus the editor the moment it opens. Bottom sheet: wait
+  // for the slide-in to settle (see onContentAnimationEnd below). Focusing
+  // during the transition raises the software keyboard mid-animation, and the
+  // keyboard inset then re-positions the sheet while it is still moving.
   const show = useCallback(() => {
     setMode("open");
     setOpen(true);
-    setFocusNonce((n) => n + 1);
+    if (!isDrawerRef.current) setFocusNonce((n) => n + 1);
   }, []);
 
   // Global open: Ctrl/Cmd+N and the command-palette bridge event.
@@ -284,7 +311,7 @@ export function QuickThreadOverlay() {
       setOpen((current) => {
         if (!current) {
           setMode("open");
-          setFocusNonce((n) => n + 1);
+          if (!isDrawerRef.current) setFocusNonce((n) => n + 1);
         }
         return !current;
       });
@@ -324,28 +351,26 @@ export function QuickThreadOverlay() {
     return () => document.removeEventListener("keydown", onEscape, true);
   }, [open]);
 
-  const scopeProps = usePortalScopeProps();
-  const { presentation } = useResponsiveOverlayBehavior();
-  const isDrawer = presentation === "drawer";
-
-  // Ask the embedded composer to submit itself (it owns its own submit button
-  // and Enter handling; we drive it by dispatching a plain Enter keydown on
-  // its editor so both the button row and the Ctrl+Enter hotkey go through the
-  // same host path).
+  // Ask the embedded composer to submit itself. It owns the submit guard and
+  // the onSubmit call; both our buttons and the Ctrl+Enter hotkey go through
+  // its form so every viewport takes the same host path.
   const submitComposer = useCallback(() => {
-    const editor = wrapperRef.current?.querySelector<HTMLElement>(
-      '[contenteditable="true"], textarea',
-    );
-    if (!editor) return;
-    editor.focus();
-    editor.dispatchEvent(
-      new KeyboardEvent("keydown", {
-        key: "Enter",
-        code: "Enter",
-        bubbles: true,
-        cancelable: true,
-      }),
-    );
+    submitHostComposer(wrapperRef.current);
+  }, []);
+
+  // Our buttons sit over the host's footer. A tap must not move focus off
+  // the editor first: on a phone that dismisses the keyboard, the sheet drops
+  // to fill the space, and the tap lands on a moving target. The host guards
+  // its own send button the same way.
+  const keepEditorFocus = useCallback(
+    (event: React.PointerEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+    },
+    [],
+  );
+
+  const onDrawerSettled = useCallback((settledOpen: boolean) => {
+    if (settledOpen) setFocusNonce((n) => n + 1);
   }, []);
 
   const dispatchWith = useCallback(
@@ -454,6 +479,7 @@ export function QuickThreadOverlay() {
       )}
     >
       <style>{PRESET_PICKER_CSS}</style>
+      {isDrawer ? <style>{DRAWER_CSS}</style> : null}
       <NewThreadComposer
         {...{ experimental_ModelPicker: ConfiguredModelPicker }}
         defaultPermissionMode="full"
@@ -512,6 +538,7 @@ export function QuickThreadOverlay() {
           type="button"
           disabled={busy}
           title="Create and keep working here (⌘/Ctrl+Enter)"
+          onPointerDown={keepEditorFocus}
           onClick={() => dispatchWith("background")}
           className={cn(
             "pointer-events-auto inline-flex items-center gap-1.5 rounded-lg px-2.5 text-sm",
@@ -528,6 +555,7 @@ export function QuickThreadOverlay() {
         <button
           type="button"
           disabled={busy}
+          onPointerDown={keepEditorFocus}
           onClick={() => dispatchWith("open")}
           className={cn(
             "pointer-events-auto inline-flex items-center gap-2 rounded-lg px-3.5 text-sm font-medium",
@@ -555,6 +583,7 @@ export function QuickThreadOverlay() {
       <PersistentResponsiveDrawerShell
         open={open}
         onOpenChange={setOpen}
+        onContentAnimationEnd={onDrawerSettled}
         srLabel="New thread"
         contentClassName={cn(
           // Chrome lives on the card (see below); keep the handle above it.
@@ -570,9 +599,11 @@ export function QuickThreadOverlay() {
           borderRadius={16}
           // Pull the beam up under the drag handle and push its bottom edge
           // (and rounded bottom corners) just below the viewport, so only the
-          // top and sides of the sheet glow.
-          className="-mb-6 -mt-8"
-          style={{ overflow: "visible" }}
+          // top and sides of the sheet glow. The wrapper is the sheet's scroll
+          // container: when the card is taller than the space above the
+          // keyboard it scrolls here instead of spilling under the keyboard.
+          className="-mb-6 -mt-8 min-h-0 overscroll-contain"
+          style={{ overflowX: "hidden", overflowY: "auto" }}
         >
           {card}
         </BorderBeam>
