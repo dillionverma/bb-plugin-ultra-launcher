@@ -426,12 +426,30 @@ export function QuickThreadOverlay() {
       onKeyDownCapture={onKeyDownCapture}
       data-quick-thread-presets=""
       data-presentation={presentation}
+      // Drawer: the card's bottom edge sits below the viewport (see the beam
+      // wrapper's negative margin), so footer padding and every absolutely
+      // positioned footer control are lifted by this inset.
+      style={
+        isDrawer
+          ? ({
+              "--ql-inset": "calc(1.5rem + env(safe-area-inset-bottom))",
+            } as React.CSSProperties)
+          : undefined
+      }
       className={cn(
         "relative bg-popover",
         COMPOSER_RESTYLE,
         TYPEAHEAD_RESTYLE,
         isDrawer
-          ? cn("rounded-t-2xl", COMPOSER_RESTYLE_DRAWER)
+          ? cn(
+              // The sheet panel is transparent; the card carries the chrome so
+              // the beam can wrap it. Top padding leaves room for the shell's
+              // drag handle, which overlays the card's top edge.
+              "rounded-t-2xl border border-b-0 border-border/70 pt-8",
+              "pb-[var(--ql-inset)]",
+              CARD_SHADOW,
+              COMPOSER_RESTYLE_DRAWER,
+            )
           : cn("rounded-2xl border border-border/70", CARD_SHADOW),
       )}
     >
@@ -457,7 +475,7 @@ export function QuickThreadOverlay() {
         className={cn(
           "absolute flex items-center",
           isDrawer
-            ? "bottom-[3.75rem] left-3 max-w-[calc(100%-1.5rem)]"
+            ? "bottom-[calc(3.75rem+var(--ql-inset))] left-3 max-w-[calc(100%-1.5rem)]"
             : "bottom-4 left-4 max-w-[13rem]",
         )}
       >
@@ -471,14 +489,25 @@ export function QuickThreadOverlay() {
         />
       </div>
       {presetError ? (
-        <p role="alert" className="absolute bottom-0 left-5 text-xs text-destructive">
+        <p
+          role="alert"
+          className={cn(
+            "absolute left-5 text-xs text-destructive",
+            isDrawer ? "bottom-[var(--ql-inset)]" : "bottom-0",
+          )}
+        >
           {presetError}
         </p>
       ) : null}
 
       {/* Our own dispatch controls, anchored over the composer's footer row.
           We own the right side. */}
-      <div className="pointer-events-none absolute bottom-4 right-4 flex items-center gap-1.5">
+      <div
+        className={cn(
+          "pointer-events-none absolute right-4 flex items-center gap-1.5",
+          isDrawer ? "bottom-[calc(1rem+var(--ql-inset))]" : "bottom-4",
+        )}
+      >
         <button
           type="button"
           disabled={busy}
@@ -528,12 +557,25 @@ export function QuickThreadOverlay() {
         onOpenChange={setOpen}
         srLabel="New thread"
         contentClassName={cn(
-          "rounded-t-2xl border-border/70 bg-popover",
-          "pb-[env(safe-area-inset-bottom)]",
-          CARD_SHADOW,
+          // Chrome lives on the card (see below); keep the handle above it.
+          "rounded-none border-0 bg-transparent",
+          "[&>[data-persistent-drawer-handle]]:relative [&>[data-persistent-drawer-handle]]:z-10",
         )}
       >
-        {card}
+        <BorderBeam
+          active={open && !prefersReducedMotion()}
+          colorVariant="colorful"
+          theme="auto"
+          strength={0.7}
+          borderRadius={16}
+          // Pull the beam up under the drag handle and push its bottom edge
+          // (and rounded bottom corners) just below the viewport, so only the
+          // top and sides of the sheet glow.
+          className="-mb-6 -mt-8"
+          style={{ overflow: "visible" }}
+        >
+          {card}
+        </BorderBeam>
       </PersistentResponsiveDrawerShell>
     );
   }
