@@ -7,7 +7,7 @@ import {
   type ResponsiveOverlayContextValue,
   blurActiveKeyboardInputWithin,
   useResponsiveRoot,
-  ResponsiveDrawerShell,
+  LazyDrawerShell,
   stripRadixContentProps,
 } from "./responsive-overlay";
 import { usePointerCoarse } from "./use-media-query";
@@ -103,7 +103,7 @@ const PopoverContent = React.forwardRef<
     const { style, ...domProps } = stripRadixContentProps(props);
 
     return (
-      <ResponsiveDrawerShell
+      <LazyDrawerShell
         open={open}
         onOpenChange={onOpenChange}
         srLabel="Options"
@@ -119,7 +119,7 @@ const PopoverContent = React.forwardRef<
         >
           {children}
         </div>
-      </ResponsiveDrawerShell>
+      </LazyDrawerShell>
     );
   }
 

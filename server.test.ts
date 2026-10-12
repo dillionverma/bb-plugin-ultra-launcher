@@ -30,8 +30,7 @@ async function setup() {
   return { ...host, get overrides() { return overrides; } };
 }
 
-// Same shape as presets saved by 0.2.x installs, including a bracketed model id.
-const savedPresets = {
+const presetsSavedBy02x = {
   revision: 7,
   presets: [
     { id: "018e5279-1858-4bb1-afbd-69a18e361859", name: "Daily coding", providerId: "claude-code", model: "claude-opus-5[1m]", reasoningLevel: "high", serviceTier: "default" },
@@ -46,11 +45,11 @@ describe("saved presets", () => {
   it("loads saved presets and the remembered selection exactly as stored", async () => {
     const host = await setup();
     try {
-      await host.bb.storage.kv.set("model-presets.v1", savedPresets);
-      await host.bb.storage.kv.set("model-presets.selected.v1", { presetId: savedPresets.presets[1]!.id });
-      expect(await host.harness.behavior.callRpc("get_presets", {})).toEqual(savedPresets);
-      expect(await host.harness.behavior.callRpc("get_selected_preset", {})).toEqual({ presetId: savedPresets.presets[1]!.id });
-      expect(await host.bb.storage.kv.get("model-presets.v1")).toEqual(savedPresets);
+      await host.bb.storage.kv.set("model-presets.v1", presetsSavedBy02x);
+      await host.bb.storage.kv.set("model-presets.selected.v1", { presetId: presetsSavedBy02x.presets[1]!.id });
+      expect(await host.harness.behavior.callRpc("get_presets", {})).toEqual(presetsSavedBy02x);
+      expect(await host.harness.behavior.callRpc("get_selected_preset", {})).toEqual({ presetId: presetsSavedBy02x.presets[1]!.id });
+      expect(await host.bb.storage.kv.get("model-presets.v1")).toEqual(presetsSavedBy02x);
       expect(host.harness.inspection.sdk.callsTo("providers.list")).toEqual([]);
     } finally {
       await host.harness.lifecycle.dispose();
@@ -62,9 +61,9 @@ describe("service tiers", () => {
   it("saves a preset on any service tier the provider declares", async () => {
     const host = await setup();
     try {
-      await host.bb.storage.kv.set("model-presets.v1", savedPresets);
-      const ultrafast = { ...savedPresets.presets[1]!, id: "6d2c8a14-9b7e-4f30-a5c1-8e4f2b7d9a03", name: "Review, ultrafast", serviceTier: "ultrafast" };
-      const next = { revision: 8, presets: [...savedPresets.presets, ultrafast] };
+      await host.bb.storage.kv.set("model-presets.v1", presetsSavedBy02x);
+      const ultrafast = { ...presetsSavedBy02x.presets[1]!, id: "6d2c8a14-9b7e-4f30-a5c1-8e4f2b7d9a03", name: "Review, ultrafast", serviceTier: "ultrafast" };
+      const next = { revision: 8, presets: [...presetsSavedBy02x.presets, ultrafast] };
       expect(await host.harness.behavior.callRpc("save_presets", { expectedRevision: 7, presets: next.presets })).toEqual(next);
       expect(await host.harness.behavior.callRpc("get_presets", {})).toEqual(next);
     } finally {

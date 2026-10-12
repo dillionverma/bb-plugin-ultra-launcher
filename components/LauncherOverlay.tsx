@@ -4,8 +4,6 @@ import { usePresets } from "../hooks/usePresets";
 import { useSelectedPreset } from "../hooks/useSelectedPreset";
 import { resolveSelected } from "../lib/selection";
 import { submitHostComposer } from "../lib/submit-composer";
-// The host composer stays mounted while closed to retain the draft. Preset
-// changes use BB's seed props, which also reset project/environment choices.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { BorderBeam } from "border-beam";

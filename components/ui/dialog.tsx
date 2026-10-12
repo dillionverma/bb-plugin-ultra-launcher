@@ -7,13 +7,13 @@ import { usePortalScopeProps } from "../../lib/portal-scope";
 import {
   type ResponsiveOverlayContextValue,
   useResponsiveRoot,
-  ResponsiveDrawerShell,
+  LazyDrawerShell,
   stripRadixContentProps,
 } from "./responsive-overlay";
 
 interface ResponsiveDialogContextValue extends ResponsiveOverlayContextValue {
-  titleId: string;
-  descriptionId: string;
+  sheetTitleId: string;
+  sheetDescriptionId: string;
 }
 
 const ResponsiveDialogContext =
@@ -21,8 +21,8 @@ const ResponsiveDialogContext =
     isCompactViewport: false,
     open: false,
     onOpenChange: () => {},
-    titleId: "",
-    descriptionId: "",
+    sheetTitleId: "",
+    sheetDescriptionId: "",
   });
 
 function useResponsiveDialog() {
@@ -39,11 +39,11 @@ function Dialog({
   children: React.ReactNode;
 }) {
   const responsiveRoot = useResponsiveRoot(open, onOpenChange);
-  const titleId = React.useId();
-  const descriptionId = React.useId();
+  const sheetTitleId = React.useId();
+  const sheetDescriptionId = React.useId();
   const ctx = React.useMemo(
-    () => ({ ...responsiveRoot, titleId, descriptionId }),
-    [descriptionId, responsiveRoot, titleId],
+    () => ({ ...responsiveRoot, sheetTitleId, sheetDescriptionId }),
+    [sheetDescriptionId, responsiveRoot, sheetTitleId],
   );
 
   return (
@@ -63,17 +63,17 @@ const DialogContent = React.forwardRef<
   HTMLDivElement,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
 >(({ className, children, ...props }, ref) => {
-  const { isCompactViewport, open, onOpenChange, titleId, descriptionId } =
+  const { isCompactViewport, open, onOpenChange, sheetTitleId, sheetDescriptionId } =
     useResponsiveDialog();
   const scopeProps = usePortalScopeProps();
 
   if (isCompactViewport) {
     return (
-      <ResponsiveDrawerShell
+      <LazyDrawerShell
         open={open}
         onOpenChange={onOpenChange}
-        labelledBy={titleId}
-        describedBy={descriptionId}
+        labelledBy={sheetTitleId}
+        describedBy={sheetDescriptionId}
       >
         <div
           ref={ref}
@@ -86,7 +86,7 @@ const DialogContent = React.forwardRef<
         >
           {children}
         </div>
-      </ResponsiveDrawerShell>
+      </LazyDrawerShell>
     );
   }
 
@@ -127,25 +127,24 @@ const DialogHeader = ({
 );
 DialogHeader.displayName = "DialogHeader";
 
-// The bottom sheet is not a Radix dialog, so it labels itself with these ids.
 function DialogTitle({ className, ...props }: { className?: string; children: React.ReactNode }) {
-  const { isCompactViewport, titleId } = useResponsiveDialog();
+  const { isCompactViewport, sheetTitleId } = useResponsiveDialog();
   const titleClassName = cn(
     "text-base font-semibold leading-none tracking-tight",
     className,
   );
   return isCompactViewport ? (
-    <h2 id={titleId} className={titleClassName} {...props} />
+    <h2 id={sheetTitleId} className={titleClassName} {...props} />
   ) : (
     <DialogPrimitive.Title className={titleClassName} {...props} />
   );
 }
 
 function DialogDescription({ className, ...props }: { className?: string; children: React.ReactNode }) {
-  const { isCompactViewport, descriptionId } = useResponsiveDialog();
+  const { isCompactViewport, sheetDescriptionId } = useResponsiveDialog();
   const descriptionClassName = cn("text-sm text-muted-foreground", className);
   return isCompactViewport ? (
-    <p id={descriptionId} className={descriptionClassName} {...props} />
+    <p id={sheetDescriptionId} className={descriptionClassName} {...props} />
   ) : (
     <DialogPrimitive.Description className={descriptionClassName} {...props} />
   );

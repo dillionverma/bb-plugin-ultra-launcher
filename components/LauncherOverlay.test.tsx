@@ -5,15 +5,15 @@ import { mockViewport } from "../test/viewport";
 
 afterEach(() => {
   cleanup();
-  mockViewport({ compact: false });
+  mockViewport({ phone: false });
 });
 
 describe.each([
-  { viewport: "desktop", compact: false, sheet: false },
-  { viewport: "phone", compact: true, sheet: true },
-])("launcher on $viewport", ({ compact, sheet }) => {
+  { viewport: "desktop", phone: false, sheet: false },
+  { viewport: "phone", phone: true, sheet: true },
+])("launcher on $viewport", ({ phone, sheet }) => {
   it("opens as a modal with Cmd+N, closes on Escape, and keeps the composer mounted", async () => {
-    mockViewport({ compact });
+    mockViewport({ phone });
     const app = await loadPluginApp(() => import("../app"));
     const launcher = app.appOverlays.find((overlay) => overlay.id === "ultra-launcher")!;
     renderSlot(launcher, {}, {

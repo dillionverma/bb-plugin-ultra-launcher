@@ -9,7 +9,6 @@ interface ModelSelection {
   providerId: string;
   model: string;
   reasoningLevel: ReasoningLevel;
-  /** A tier id the provider declares, such as "default", "fast" or "ultrafast". */
   serviceTier: string;
 }
 export interface ModelPreset extends ModelSelection {

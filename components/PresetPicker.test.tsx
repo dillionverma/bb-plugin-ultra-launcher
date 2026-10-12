@@ -182,10 +182,10 @@ describe("inline preset management", () => {
 });
 
 describe("preset picker on a phone", () => {
-  afterEach(() => mockViewport({ compact: false }));
+  afterEach(() => mockViewport({ phone: false }));
 
   function openSheet() {
-    mockViewport({ compact: true });
+    mockViewport({ phone: true });
     const value = props();
     render(<PresetPicker {...value} />);
     const trigger = screen.getByRole("button", { name: "Choose preset: Opus 5" });

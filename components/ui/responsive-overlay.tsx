@@ -184,7 +184,7 @@ export function stripRadixContentProps<T extends Record<string, unknown>>(
   return result as Omit<T, RadixContentPropName>;
 }
 
-interface ResponsiveDrawerShellProps {
+interface LazyDrawerShellProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   srLabel?: string;
@@ -193,11 +193,10 @@ interface ResponsiveDrawerShellProps {
   children: React.ReactNode;
 }
 
-/** Mounts on first open, then stays mounted so closing can animate out. */
-export function ResponsiveDrawerShell({
+export function LazyDrawerShell({
   open,
   ...props
-}: ResponsiveDrawerShellProps) {
+}: LazyDrawerShellProps) {
   const [hasOpened, setHasOpened] = React.useState(open);
   if (open && !hasOpened) setHasOpened(true);
   if (!hasOpened) return null;
@@ -307,9 +306,7 @@ function handleDrawerTab(event: KeyboardEvent, panel: HTMLElement): void {
   });
 }
 
-// One keydown listener per document routes Escape and Tab to the topmost
-// open drawer, so a sheet opened from inside another sheet closes first.
-function registerOpenDrawer(
+function pushDrawerKeyHandler(
   ownerDocument: Document,
   entry: PersistentDrawerStackEntry,
 ): () => void {
@@ -379,7 +376,7 @@ function usePersistentOverlayFocus(
       previousFocus !== ownerDocument.body
         ? previousFocus
         : null;
-    const unregister = registerOpenDrawer(ownerDocument, {
+    const unregister = pushDrawerKeyHandler(ownerDocument, {
       panel: () => panelRef.current,
       requestClose,
     });
@@ -425,7 +422,6 @@ type PersistentDrawerDrag = {
   height: number;
 };
 
-/** A bottom sheet that stays mounted (off-screen and inert) while closed. */
 export function PersistentResponsiveDrawerShell({
   open,
   onOpenChange,

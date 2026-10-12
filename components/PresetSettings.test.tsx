@@ -187,13 +187,13 @@ describe("saved preset list", () => {
 });
 
 describe.each([
-  { viewport: "desktop", compact: false },
-  { viewport: "phone", compact: true },
-])("preset settings overlay on $viewport", ({ compact }) => {
-  afterEach(() => mockViewport({ compact: false }));
+  { viewport: "desktop", phone: false },
+  { viewport: "phone", phone: true },
+])("preset settings overlay on $viewport", ({ phone }) => {
+  afterEach(() => mockViewport({ phone: false }));
 
   it("opens from Edit presets as a labelled dialog and closes on Escape", async () => {
-    mockViewport({ compact });
+    mockViewport({ phone });
     render(<PresetSettingsOverlay />);
     expect(screen.queryByRole("dialog")).toBeNull();
     act(() => {
@@ -203,7 +203,7 @@ describe.each([
       name: "Model presets",
       description: "Choose your model once. Reuse it in every thread.",
     });
-    expect(dialog.querySelector("[data-persistent-drawer-handle]") !== null).toBe(compact);
+    expect(dialog.querySelector("[data-persistent-drawer-handle]") !== null).toBe(phone);
     expect(await screen.findByRole("button", { name: "Add preset" })).toBeTruthy();
     fireEvent.keyDown(document.activeElement ?? document, { key: "Escape" });
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
