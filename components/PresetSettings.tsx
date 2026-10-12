@@ -8,7 +8,7 @@ import {
 } from "@get-bb/plugin-sdk/app";
 import type { ExperimentalProviderModelPickerValue } from "@get-bb/plugin-sdk";
 import { usePresets } from "../hooks/usePresets";
-import { EDIT_PRESETS_EVENT, effortLabel, parsePreset, type ModelPreset } from "../lib/presets";
+import { EDIT_PRESETS_EVENT, effortLabel, parsePreset, tierLabel, type ModelPreset } from "../lib/presets";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Field, FieldGroup, FieldLabel } from "./ui/field";
@@ -161,7 +161,7 @@ export function PresetSettings() {
                     <span className="min-w-0 flex-1 truncate text-sm font-medium">{preset.name}</span>
                   </button>
                   <span className="max-w-full truncate px-2 text-xs text-muted-foreground" aria-label={`Model for ${preset.name}`}>
-                    {preset.model} · {effortLabel(preset.reasoningLevel)}{preset.serviceTier === "fast" ? " · Fast" : ""}
+                    {preset.model} · {effortLabel(preset.reasoningLevel)}{preset.serviceTier === "default" ? "" : ` · ${tierLabel(preset.serviceTier)}`}
                   </span>
                 </div>
               )} />

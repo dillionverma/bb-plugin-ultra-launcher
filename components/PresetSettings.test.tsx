@@ -172,6 +172,20 @@ describe("preset settings editor", () => {
 
 });
 
+describe("saved preset list", () => {
+  it("labels each preset with the service tier it uses", () => {
+    mocks.state = { revision: 1, presets: [
+      { id: "a", name: "Plain", providerId: "codex", model: "sol", reasoningLevel: "high", serviceTier: "default" },
+      { id: "b", name: "Quick", providerId: "codex", model: "sol", reasoningLevel: "high", serviceTier: "fast" },
+      { id: "c", name: "Quickest", providerId: "codex", model: "sol", reasoningLevel: "high", serviceTier: "ultrafast" },
+    ] };
+    render(<PresetSettings />);
+    expect(screen.getByLabelText("Model for Plain").textContent).toBe("sol · High");
+    expect(screen.getByLabelText("Model for Quick").textContent).toBe("sol · High · Fast");
+    expect(screen.getByLabelText("Model for Quickest").textContent).toBe("sol · High · Ultrafast");
+  });
+});
+
 describe.each([
   { viewport: "desktop", compact: false },
   { viewport: "phone", compact: true },

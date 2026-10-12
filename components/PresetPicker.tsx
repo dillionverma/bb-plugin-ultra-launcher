@@ -245,7 +245,7 @@ export function PresetPicker(props: PresetPickerProps) {
                   ) : null}
                 </span>
                 <span className="ml-auto flex shrink-0 items-center gap-1.5">
-                  {preset.serviceTier === "fast" ? (
+                  {preset.serviceTier !== "default" ? (
                     <Icon name="Zap" className="size-3.5 text-muted-foreground" />
                   ) : null}
                   {pending === preset.id ? (

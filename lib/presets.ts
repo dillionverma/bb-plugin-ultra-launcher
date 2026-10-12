@@ -3,15 +3,14 @@
 // (~450 KB minified), which delayed every plugin frontend on load.
 export const REASONING_LEVELS = ["none", "low", "medium", "high", "xhigh", "max", "ultra", "ultracode"] as const;
 type ReasoningLevel = (typeof REASONING_LEVELS)[number];
-export const SERVICE_TIERS = ["default", "fast"] as const;
-type ServiceTier = (typeof SERVICE_TIERS)[number];
 export const MAX_PRESETS = 30;
 
 interface ModelSelection {
   providerId: string;
   model: string;
   reasoningLevel: ReasoningLevel;
-  serviceTier: ServiceTier;
+  /** A tier id the provider declares, such as "default", "fast" or "ultrafast". */
+  serviceTier: string;
 }
 export interface ModelPreset extends ModelSelection {
   id: string;
@@ -38,10 +37,8 @@ function parseSelection(value: unknown): ModelSelection | null {
   const providerId = boundedString(draft.providerId, 256, true);
   const model = boundedString(draft.model, 512, true);
   const reasoningLevel = REASONING_LEVELS.find((level) => level === draft.reasoningLevel);
-  const serviceTier = draft.serviceTier === undefined
-    ? "default"
-    : SERVICE_TIERS.find((tier) => tier === draft.serviceTier);
-  if (providerId === null || model === null || reasoningLevel === undefined || serviceTier === undefined) return null;
+  const serviceTier = draft.serviceTier === undefined ? "default" : boundedString(draft.serviceTier, 64, true);
+  if (providerId === null || model === null || reasoningLevel === undefined || serviceTier === null) return null;
   return { providerId, model, reasoningLevel, serviceTier };
 }
 
@@ -67,6 +64,7 @@ export const effortLabel = (value: string) =>
     ultra: "Ultra",
     ultracode: "Ultra code",
   })[value] ?? value;
+export const tierLabel = (tier: string) => tier.charAt(0).toUpperCase() + tier.slice(1);
 export function isActivePreset(
   preset: ModelPreset,
   selection: {

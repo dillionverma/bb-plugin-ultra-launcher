@@ -58,6 +58,21 @@ describe("saved presets", () => {
   });
 });
 
+describe("service tiers", () => {
+  it("saves a preset on any service tier the provider declares", async () => {
+    const host = await setup();
+    try {
+      await host.bb.storage.kv.set("model-presets.v1", savedPresets);
+      const ultrafast = { ...savedPresets.presets[1]!, id: "6d2c8a14-9b7e-4f30-a5c1-8e4f2b7d9a03", name: "Review, ultrafast", serviceTier: "ultrafast" };
+      const next = { revision: 8, presets: [...savedPresets.presets, ultrafast] };
+      expect(await host.harness.behavior.callRpc("save_presets", { expectedRevision: 7, presets: next.presets })).toEqual(next);
+      expect(await host.harness.behavior.callRpc("get_presets", {})).toEqual(next);
+    } finally {
+      await host.harness.lifecycle.dispose();
+    }
+  });
+});
+
 describe("thread creation", () => {
   it("forwards composer fields BB adds later to the spawn request", async () => {
     const host = await setup();

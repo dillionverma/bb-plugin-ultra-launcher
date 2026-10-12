@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   EMPTY_PRESETS,
   isActivePreset,
+  parsePreset,
   type ModelPreset,
   type PresetState,
 } from "./presets";
@@ -96,4 +97,17 @@ describe("default presets", () => {
     expect(fixture.state).toEqual({ revision: 1, presets: [seeded] });
     expect(fixture.resolved).toBe(1);
   }, 1000);
+});
+describe("parsePreset", () => {
+  it("parses presets saved in the current shape and any tier a provider declares", () => {
+    expect(parsePreset(preset)).toEqual(preset);
+    expect(parsePreset({ ...preset, serviceTier: "fast" })).toEqual({ ...preset, serviceTier: "fast" });
+    expect(parsePreset({ ...preset, serviceTier: "ultrafast" })).toEqual({ ...preset, serviceTier: "ultrafast" });
+    const { serviceTier: _omitted, ...withoutTier } = preset;
+    expect(parsePreset(withoutTier)).toEqual({ ...preset, serviceTier: "default" });
+  });
+  it("rejects a draft without a model or with a blank service tier", () => {
+    expect(parsePreset({ ...preset, model: " " })).toBeNull();
+    expect(parsePreset({ ...preset, serviceTier: " " })).toBeNull();
+  });
 });
