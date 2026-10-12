@@ -60,8 +60,4 @@ bb plugin install .
 bb plugin dev
 ```
 
-`npm run preview` shows the preset controls with sample catalogs. Build first
-to generate the styles. Verify thread creation in BB, since the preview does
-not create threads.
-
 MIT. See [LICENSE](LICENSE).

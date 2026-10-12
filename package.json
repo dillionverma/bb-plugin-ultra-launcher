@@ -46,14 +46,12 @@
     "sonner": "^1.7.4",
     "tailwind-merge": "^3.4.0",
     "typescript": "^5.7.0",
-    "vite": "^8.3.0",
     "vitest": "^5.0.0"
   },
   "scripts": {
     "build": "bb plugin build",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run",
-    "preview": "vite --open /preview/"
+    "test": "vitest run"
   },
   "files": [
     "app.tsx",
