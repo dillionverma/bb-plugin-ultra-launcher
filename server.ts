@@ -8,19 +8,17 @@ import { defineRpcContract, type BbPluginApi, type NewThreadRequest } from "@get
 import { z } from "zod";
 
 // Forward additive composer fields to BB, which validates the spawn request.
-const newThreadRequestSchema = z
-  .object({
-    projectId: z.string(),
-    providerId: z.string(),
-    model: z.string(),
-    reasoningLevel: z.string().nullish(),
-    permissionMode: z.string().nullish(),
-    serviceTier: z.string().nullish(),
-    executionInputSources: z.unknown(),
-    environment: z.unknown(),
-    input: z.unknown(),
-  })
-  .passthrough();
+const newThreadRequestSchema = z.looseObject({
+  projectId: z.string(),
+  providerId: z.string(),
+  model: z.string(),
+  reasoningLevel: z.string().nullish(),
+  permissionMode: z.string().nullish(),
+  serviceTier: z.string().nullish(),
+  executionInputSources: z.unknown(),
+  environment: z.unknown(),
+  input: z.unknown(),
+});
 
 export const rpcContract = defineRpcContract({
   get_presets: { input: z.object({}), output: presetStateSchema },
