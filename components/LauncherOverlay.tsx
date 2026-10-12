@@ -17,12 +17,12 @@ import {
 import { toast } from "sonner";
 import type { rpcContract } from "../server";
 import type { NewThreadRequest } from "@get-bb/plugin-sdk";
-import { cn } from "@/lib/utils";
-import { usePortalScopeProps } from "@/lib/portal-scope";
+import { cn } from "../lib/utils";
+import { usePortalScopeProps } from "../lib/portal-scope";
 import {
   PersistentResponsiveDrawerShell,
   useResponsiveOverlayBehavior,
-} from "@/components/ui/responsive-overlay";
+} from "./ui/responsive-overlay";
 
 export const OPEN_EVENT = "ultra-launcher:open";
 

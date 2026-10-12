@@ -1,6 +1,6 @@
 import { PresetSettings, PresetSettingsOverlay } from "./components/PresetSettings";
 import { definePluginApp } from "@get-bb/plugin-sdk/app";
-import { OPEN_EVENT, LauncherOverlay } from "@/components/LauncherOverlay";
+import { OPEN_EVENT, LauncherOverlay } from "./components/LauncherOverlay";
 
 export default definePluginApp((app) => {
   app.slots.settingsSection({ id: "model-presets", title: "Model presets", description: "Choose the presets shown in the Cmd+N model menu.", component: PresetSettings });
