@@ -1,15 +1,15 @@
 {
   "name": "bb-plugin-ultra-launcher",
-  "version": "0.2.0-preview.4",
+  "version": "1.0.0",
   "type": "module",
   "license": "MIT",
   "engines": {
     "bb": ">=0.46",
-    "bbPluginSdk": ">=0.4.87"
+    "bbPluginSdk": ">=0.6.37"
   },
   "bb": {
     "name": "Ultra Launcher",
-    "description": "Launch BB threads with Cmd+N, reusable model presets, and background creation.",
+    "description": "Press Cmd/Ctrl+N on any BB screen to start a thread from a saved model preset, then open it or keep working where you are.",
     "branding": {
       "icon": "MessageSquarePlus"
     },
@@ -62,7 +62,7 @@
     "!**/*.test.ts",
     "!**/*.test.tsx"
   ],
-  "description": "Launch BB threads with Cmd+N, reusable model presets, and background creation.",
+  "description": "Press Cmd/Ctrl+N on any BB screen to start a thread from a saved model preset, then open it or keep working where you are.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/dillionverma/bb-plugin-ultra-launcher.git"

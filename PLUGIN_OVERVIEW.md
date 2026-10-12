@@ -18,7 +18,7 @@ launcher owns Cmd/Ctrl+N. User overrides are preserved.
 
 ## Requirements
 
-BB 0.46+ and Plugin SDK 0.4.87+. No host patches or separate services required.
+BB 0.46+ and Plugin SDK 0.6.37+. No host patches or separate services required.
 Changing presets can reset project and environment choices, so choose the
 preset first.
 

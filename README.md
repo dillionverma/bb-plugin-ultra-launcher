@@ -10,7 +10,7 @@ your place.
 bb plugin install https://github.com/dillionverma/bb-plugin-ultra-launcher
 ```
 
-Requires BB 0.46+ and Plugin SDK 0.4.87+. No BB patches required.
+Requires BB 0.46+ and Plugin SDK 0.6.37+. No BB patches required.
 
 ## Use
 
