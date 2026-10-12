@@ -13,7 +13,7 @@ export default definePluginApp((app) => {
 
   // Reliable fallback for browsers/OSes that reserve Cmd/Ctrl+N. The palette
   // row cannot reach React state directly, so it signals the overlay.
-  app.slots.commandPaletteAction({
+  app.commands.register({
     id: "new-thread",
     title: "Ultra Launcher: new thread",
     run: () => {
