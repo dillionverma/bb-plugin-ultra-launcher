@@ -64,13 +64,4 @@ bb plugin dev
 to generate the styles. Verify thread creation in BB, since the preview does
 not create threads.
 
-## Ultra suite
-
-- [Ultra Cmd+K](https://github.com/dillionverma/bb-plugin-ultra-cmd-k): Command palette.
-- [Ultra Sidebar](https://github.com/dillionverma/bb-plugin-ultra-sidebar): Thread organization.
-- [Vesper](https://github.com/dillionverma/bb-plugin-vesper): Dark theme.
-- [Traces](https://github.com/dillionverma/bb-observability): Agent activity and tool traces.
-
-Based on [Quick Thread by marospekarik](https://github.com/marospekarik/bb-plugin-quick-thread).
-
 MIT. See [LICENSE](LICENSE).
