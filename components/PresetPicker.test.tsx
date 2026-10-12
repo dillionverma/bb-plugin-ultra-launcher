@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { PresetPicker, type PresetPickerProps } from "./PresetPicker";
 import type { ModelPreset } from "../lib/presets";
+import { mockViewport } from "../test/viewport";
 const presets: ModelPreset[] = [
   {
     id: "opus",
@@ -178,5 +179,49 @@ describe("inline preset management", () => {
     fireEvent.keyDown(screen.getByRole("textbox", { name: "Preset name" }), { key: "Escape" });
     expect(screen.queryByRole("textbox")).toBeNull();
     expect(screen.getByRole("menu")).toBeTruthy();
+  });
+});
+
+describe("preset picker on a phone", () => {
+  afterEach(() => mockViewport({ compact: false }));
+
+  function openSheet() {
+    mockViewport({ compact: true });
+    const value = props();
+    render(<PresetPicker {...value} />);
+    const trigger = screen.getByRole("button", { name: "Choose preset: Opus 5" });
+    trigger.focus();
+    fireEvent.click(trigger);
+    return { value, trigger };
+  }
+
+  it("opens as a bottom sheet, applies a preset, and returns focus to the trigger", async () => {
+    const { value, trigger } = openSheet();
+    const sheet = await screen.findByRole("dialog");
+    expect(sheet.getAttribute("aria-modal")).toBe("true");
+    expect(sheet.querySelector("[data-persistent-drawer-handle]")).not.toBeNull();
+    fireEvent.click(await within(sheet).findByRole("menuitemradio", { name: /GPT-5.6 Sol/ }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(value.onPresetSelect).toHaveBeenCalledExactlyOnceWith({
+      providerId: "codex",
+      model: "sol",
+      reasoningLevel: "high",
+      serviceTier: "fast",
+    });
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it("closes on Escape and on a backdrop tap without applying a preset", async () => {
+    const { value, trigger } = openSheet();
+    await screen.findByRole("menuitemradio", { name: /GPT-5.6 Sol/ });
+    fireEvent.keyDown(document.activeElement ?? document, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(document.activeElement).toBe(trigger);
+
+    fireEvent.click(trigger);
+    await screen.findByRole("dialog");
+    fireEvent.click(document.querySelector("[data-persistent-drawer-backdrop]")!);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(value.onPresetSelect).not.toHaveBeenCalled();
   });
 });

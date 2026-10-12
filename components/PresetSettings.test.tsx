@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useEffect } from "react";
 import type { ExperimentalProviderModelPickerProps } from "@get-bb/plugin-sdk/app";
-import { PresetSettings } from "./PresetSettings";
-import type { PresetState } from "../lib/presets";
+import { PresetSettings, PresetSettingsOverlay } from "./PresetSettings";
+import { EDIT_PRESETS_EVENT, type PresetState } from "../lib/presets";
+import { mockViewport } from "../test/viewport";
 const mocks = vi.hoisted(() => ({
   state: { revision: 0, presets: [] } as PresetState,
   save: vi.fn(),
@@ -168,4 +169,28 @@ describe("preset settings editor", () => {
     expect(screen.queryByText("Changes saved")).toBeNull();
   });
 
+});
+
+describe.each([
+  { viewport: "desktop", compact: false },
+  { viewport: "phone", compact: true },
+])("preset settings overlay on $viewport", ({ compact }) => {
+  afterEach(() => mockViewport({ compact: false }));
+
+  it("opens from Edit presets as a labelled dialog and closes on Escape", async () => {
+    mockViewport({ compact });
+    render(<PresetSettingsOverlay />);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    act(() => {
+      window.dispatchEvent(new Event(EDIT_PRESETS_EVENT));
+    });
+    const dialog = await screen.findByRole("dialog", {
+      name: "Model presets",
+      description: "Choose your model once. Reuse it in every thread.",
+    });
+    expect(dialog.querySelector("[data-persistent-drawer-handle]") !== null).toBe(compact);
+    expect(await screen.findByRole("button", { name: "Add preset" })).toBeTruthy();
+    fireEvent.keyDown(document.activeElement ?? document, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
 });
