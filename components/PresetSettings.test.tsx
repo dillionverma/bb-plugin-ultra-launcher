@@ -1,11 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useEffect } from "react";
+import type { ExperimentalProviderModelPickerProps } from "@get-bb/plugin-sdk/app";
 import { PresetSettings } from "./PresetSettings";
 import type { PresetState } from "../lib/presets";
 const mocks = vi.hoisted(() => ({
   state: { revision: 0, presets: [] } as PresetState,
   save: vi.fn(),
   restoreDefaults: vi.fn(),
+  canonicalizeOnMount: false,
 }));
 vi.mock("../hooks/usePresets", () => ({
   usePresets: () => ({
@@ -20,7 +23,11 @@ vi.mock("../hooks/usePresets", () => ({
 vi.mock("@get-bb/plugin-sdk/app", () => ({
   experimental_useProviders: () => ({ providers: [{ id: "codex" }] }),
   experimental_ProviderIcon: () => null,
-  experimental_ProviderModelPicker: ({ value, onChange }: any) => (
+  experimental_ProviderModelPicker: ({ value, onChange }: Pick<ExperimentalProviderModelPickerProps, "value" | "onChange">) => {
+    useEffect(() => {
+      if (mocks.canonicalizeOnMount) onChange({ ...value, model: "canonical-model" });
+    }, []);
+    return (
     <button
       type="button"
       onClick={() =>
@@ -35,13 +42,15 @@ vi.mock("@get-bb/plugin-sdk/app", () => ({
     >
       Choose Sol High Fast
     </button>
-  ),
+    );
+  },
 }));
 afterEach(cleanup);
 beforeEach(() => {
   mocks.state = { revision: 0, presets: [] };
   mocks.save.mockReset().mockResolvedValue({ revision: 1, presets: [] });
   mocks.restoreDefaults.mockReset().mockResolvedValue({ revision: 1, presets: [] });
+  mocks.canonicalizeOnMount = false;
 });
 describe("preset settings editor", () => {
   it("saves a named complete model combination through the shared store", async () => {
@@ -97,17 +106,42 @@ describe("preset settings editor", () => {
     await waitFor(() => expect(screen.queryByText("Replace your 1 preset?")).toBeNull());
     expect(mocks.save).not.toHaveBeenCalled();
   });
-  it("saves model changes directly without opening an editor", async () => {
+  it("opens the saved list without mounting model pickers or saving aliases", () => {
+    mocks.state = { revision: 4, presets: [
+      { id: "a", name: "My preset", providerId: "codex", model: "saved-alias", reasoningLevel: "medium", serviceTier: "default" },
+    ] };
+    mocks.canonicalizeOnMount = true;
+    render(<PresetSettings />);
+    expect(mocks.save).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Choose Sol High Fast" })).toBeNull();
+    expect(screen.getByText(/saved-alias/)).toBeTruthy();
+  });
+  it("saves model changes only after editing and explicitly saving", async () => {
     mocks.state = { revision: 4, presets: [
       { id: "a", name: "My preset", providerId: "codex", model: "astra", reasoningLevel: "medium", serviceTier: "default" },
     ] };
     render(<PresetSettings />);
+    fireEvent.click(screen.getByRole("button", { name: "Edit My preset" }));
     fireEvent.click(screen.getByRole("button", { name: "Choose Sol High Fast" }));
+    expect(mocks.save).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Save preset" }));
     await waitFor(() => expect(mocks.save).toHaveBeenCalledWith([
       expect.objectContaining({ id: "a", name: "My preset", model: "sol", reasoningLevel: "high", serviceTier: "fast" }),
     ], 4));
     expect(screen.queryByRole("textbox")).toBeNull();
     await screen.findByText("Changes saved");
+  });
+  it("cancels model canonicalization in the editor without changing saved presets", () => {
+    mocks.state = { revision: 4, presets: [
+      { id: "a", name: "My preset", providerId: "codex", model: "saved-alias", reasoningLevel: "medium", serviceTier: "default" },
+    ] };
+    render(<PresetSettings />);
+    mocks.canonicalizeOnMount = true;
+    fireEvent.click(screen.getByRole("button", { name: "Edit My preset" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(mocks.save).not.toHaveBeenCalled();
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(screen.getByText(/saved-alias/)).toBeTruthy();
   });
   it("starts from an existing configuration and generates a name when omitted", async () => {
     mocks.state = { revision: 2, presets: [

@@ -160,14 +160,9 @@ export function PresetSettings() {
                     <PresetProviderLogo providerId={preset.providerId} />
                     <span className="min-w-0 flex-1 truncate text-sm font-medium">{preset.name}</span>
                   </button>
-                  <div className="max-w-full rounded-md" aria-label={`Model for ${preset.name}`}>
-                    <ProviderModelPicker value={preset} disabled={locked} align="end" onChange={(value) => {
-                      const next = parsePreset({ ...preset, ...value, serviceTier: value.serviceTier ?? "default" });
-                      if (next === null) return;
-                      if (next.providerId === preset.providerId && next.model === preset.model && next.reasoningLevel === preset.reasoningLevel && next.serviceTier === preset.serviceTier) return;
-                      void persist(store.state.presets.map((item) => item.id === preset.id ? next : item));
-                    }} />
-                  </div>
+                  <span className="max-w-full truncate px-2 text-xs text-muted-foreground" aria-label={`Model for ${preset.name}`}>
+                    {preset.model} · {effortLabel(preset.reasoningLevel)}{preset.serviceTier === "fast" ? " · Fast" : ""}
+                  </span>
                 </div>
               )} />
               {store.state.presets.length === 0 ? <p className="py-6 text-center text-sm text-muted-foreground">Your favorite model combinations, one click away.<br />Add a preset to get started.</p> : null}
@@ -179,7 +174,7 @@ export function PresetSettings() {
               <Button type="button" size="sm" disabled={saving} onClick={() => void restore()}>{saving ? "Restoring…" : "Restore"}</Button>
               <Button type="button" size="sm" variant="ghost" disabled={saving} onClick={() => setConfirmRestore(false)}>Cancel</Button>
             </div> : <Button type="button" size="sm" variant="ghost" disabled={locked} onClick={() => setConfirmRestore(true)}>Restore defaults</Button>}
-            <span role="status" className="text-xs text-muted-foreground">{saving ? "Saving…" : saved ? "Changes saved" : "Model changes save automatically"}</span>
+            <span role="status" className="text-xs text-muted-foreground">{saving ? "Saving…" : saved ? "Changes saved" : ""}</span>
           </div>
         </>
       )}
