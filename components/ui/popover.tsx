@@ -5,18 +5,12 @@ import { cn } from "../../lib/utils";
 import { usePortalScopeProps } from "../../lib/portal-scope";
 import {
   type ResponsiveOverlayContextValue,
-  COMPACT_SHEET_CONTENT_STYLE,
+  blurActiveKeyboardInputWithin,
   useResponsiveRoot,
-  MobileTrigger,
   ResponsiveDrawerShell,
   stripRadixContentProps,
-} from "./responsive-overlay.js";
-import {
-  blurActiveKeyboardInputWithin,
-  getOverlayTriggerClassName,
-  preventOverlayTriggerSelection,
-} from "./overlay-trigger.js";
-import { usePointerCoarse } from "./hooks/use-pointer-coarse.js";
+} from "./responsive-overlay";
+import { usePointerCoarse } from "./use-media-query";
 
 const ResponsivePopoverContext =
   React.createContext<ResponsiveOverlayContextValue>({
@@ -30,176 +24,125 @@ function useResponsivePopover() {
 }
 
 function Popover({
+  open,
+  onOpenChange,
   children,
-  open: controlledOpen,
-  onOpenChange: controlledOnChange,
-  defaultOpen,
-  ...props
-}: React.ComponentProps<typeof PopoverPrimitive.Root>) {
-  const ctx = useResponsiveRoot(
-    controlledOpen,
-    controlledOnChange,
-    defaultOpen,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  children: React.ReactNode;
+}) {
+  const ctx = useResponsiveRoot(open, onOpenChange);
+  const content = (
+    <ResponsivePopoverContext.Provider value={ctx}>
+      {children}
+    </ResponsivePopoverContext.Provider>
   );
 
-  if (ctx.isCompactViewport) {
-    return (
-      <ResponsivePopoverContext.Provider value={ctx}>
-        {children}
-      </ResponsivePopoverContext.Provider>
-    );
-  }
+  if (ctx.isCompactViewport) return content;
 
   return (
-    <PopoverPrimitive.Root
-      open={ctx.open}
-      onOpenChange={ctx.onOpenChange}
-      {...props}
-    >
-      <ResponsivePopoverContext.Provider value={ctx}>
-        {children}
-      </ResponsivePopoverContext.Provider>
+    <PopoverPrimitive.Root open={ctx.open} onOpenChange={ctx.onOpenChange}>
+      {content}
     </PopoverPrimitive.Root>
   );
 }
 
 const PopoverTrigger = React.forwardRef<
   HTMLButtonElement,
-  React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Trigger>
->(({ asChild, children, className, ...props }, ref) => {
+  React.ComponentPropsWithoutRef<"button">
+>(({ className, onClick, ...props }, ref) => {
   const { isCompactViewport, open, onOpenChange } = useResponsivePopover();
+  const triggerClassName = cn("select-none", className);
 
   if (isCompactViewport) {
     return (
-      <MobileTrigger
+      <button
         ref={ref}
-        asChild={asChild}
-        open={open}
-        onOpenChange={onOpenChange}
-        haspopup="dialog"
-        className={className}
+        type="button"
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        data-state={open ? "open" : "closed"}
+        className={triggerClassName}
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={(event) => {
+          onClick?.(event);
+          if (event.defaultPrevented) return;
+          if (!open) blurActiveKeyboardInputWithin(null);
+          onOpenChange(!open);
+        }}
         {...props}
-      >
-        {children}
-      </MobileTrigger>
+      />
     );
   }
 
   return (
     <PopoverPrimitive.Trigger
       ref={ref}
-      asChild={asChild}
-      className={getOverlayTriggerClassName(className)}
+      className={triggerClassName}
+      onClick={onClick}
       onMouseDown={(event) => {
-        if (!open) {
-          blurActiveKeyboardInputWithin(null);
-        }
-        preventOverlayTriggerSelection(event);
+        if (!open) blurActiveKeyboardInputWithin(null);
+        event.preventDefault();
       }}
       {...props}
-    >
-      {children}
-    </PopoverPrimitive.Trigger>
+    />
   );
 });
 PopoverTrigger.displayName = "PopoverTrigger";
 
 const PopoverContent = React.forwardRef<
   HTMLDivElement,
-  React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content> & {
-    dismissOnOutsideInteraction?: boolean;
-    mobileTitle?: string;
-    mobileClassName?: string;
-    onMobileContentAnimationEnd?: (open: boolean) => void;
-    autoFocusRef?: React.RefObject<HTMLElement | null>;
-  }
->(
-  (
-    {
-      className,
-      align = "center",
-      sideOffset = 4,
-      children,
-      dismissOnOutsideInteraction = true,
-      onInteractOutside,
-      mobileTitle,
-      mobileClassName,
-      onMobileContentAnimationEnd,
-      onOpenAutoFocus,
-      autoFocusRef,
-      ...props
-    },
-    ref,
-  ) => {
-    const { isCompactViewport, open, onOpenChange } = useResponsivePopover();
-    const isPointerCoarse = usePointerCoarse();
-    const scopeProps = usePortalScopeProps();
+  React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content>
+>(({ className, children, onOpenAutoFocus, ...props }, ref) => {
+  const { isCompactViewport, open, onOpenChange } = useResponsivePopover();
+  const isPointerCoarse = usePointerCoarse();
+  const scopeProps = usePortalScopeProps();
 
-    React.useEffect(() => {
-      if (!open || isCompactViewport || isPointerCoarse || !autoFocusRef)
-        return;
-      const frame = window.requestAnimationFrame(() => {
-        const target = autoFocusRef.current;
-        target?.focus();
-        if (target instanceof HTMLInputElement) target.select();
-      });
-      return () => window.cancelAnimationFrame(frame);
-    }, [autoFocusRef, isCompactViewport, isPointerCoarse, open]);
-
-    if (isCompactViewport) {
-      const { style, ...domProps } = stripRadixContentProps(props);
-
-      return (
-        <ResponsiveDrawerShell
-          open={open}
-          onOpenChange={onOpenChange}
-          srLabel={mobileTitle ?? "Options"}
-          closeOnBackdropClick={dismissOnOutsideInteraction}
-          contentClassName={mobileClassName}
-          onContentAnimationEnd={onMobileContentAnimationEnd}
-        >
-          <div
-            ref={ref}
-            className={cn(
-              "overflow-y-auto px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))]",
-              className,
-            )}
-            {...domProps}
-            style={{ ...style, ...COMPACT_SHEET_CONTENT_STYLE }}
-          >
-            {children}
-          </div>
-        </ResponsiveDrawerShell>
-      );
-    }
+  if (isCompactViewport) {
+    const { style, ...domProps } = stripRadixContentProps(props);
 
     return (
-      <PopoverPrimitive.Portal>
-        <PopoverPrimitive.Content
+      <ResponsiveDrawerShell
+        open={open}
+        onOpenChange={onOpenChange}
+        srLabel="Options"
+      >
+        <div
           ref={ref}
-          {...scopeProps}
-          align={align}
-          sideOffset={sideOffset}
-          onOpenAutoFocus={(event) => {
-            if (isPointerCoarse || autoFocusRef) event.preventDefault();
-            if (!isPointerCoarse) onOpenAutoFocus?.(event);
-          }}
           className={cn(
-            "z-50 w-96 rounded-md border bg-popover p-4 text-popover-foreground shadow-md outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+            "overflow-y-auto px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))]",
             className,
           )}
-          {...props}
-          onInteractOutside={(event) => {
-            if (!dismissOnOutsideInteraction) event.preventDefault();
-            onInteractOutside?.(event);
-          }}
+          {...domProps}
+          style={{ ...style, width: "auto", minWidth: "auto", maxWidth: "none" }}
         >
           {children}
-        </PopoverPrimitive.Content>
-      </PopoverPrimitive.Portal>
+        </div>
+      </ResponsiveDrawerShell>
     );
-  },
-);
+  }
+
+  return (
+    <PopoverPrimitive.Portal>
+      <PopoverPrimitive.Content
+        ref={ref}
+        {...scopeProps}
+        onOpenAutoFocus={(event) => {
+          if (isPointerCoarse) event.preventDefault();
+          else onOpenAutoFocus?.(event);
+        }}
+        className={cn(
+          "z-50 w-96 rounded-md border bg-popover p-4 text-popover-foreground shadow-md outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+          className,
+        )}
+        {...props}
+      >
+        {children}
+      </PopoverPrimitive.Content>
+    </PopoverPrimitive.Portal>
+  );
+});
 PopoverContent.displayName = "PopoverContent";
 
 export { Popover, PopoverTrigger, PopoverContent };

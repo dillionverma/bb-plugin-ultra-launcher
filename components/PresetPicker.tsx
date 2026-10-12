@@ -102,8 +102,8 @@ export function PresetPicker(props: PresetPickerProps) {
         onChange={(event) => setEditor({ ...editor, draft: { ...editor.draft, name: event.target.value } })} className="h-8 text-sm" />
       {conflict ? <p role="alert" className="text-xs text-destructive">Presets changed. Cancel and reopen to use the latest list.</p> : null}
       <div className="flex justify-end gap-1">
-        <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => { setEditor(null); setError(null); }}>Cancel</Button>
-        <Button type="button" size="sm" disabled={busy || conflict || !editor.draft.model.trim()} onClick={saveDraft}>{pending === "save" ? "Saving…" : editor.isNew ? "Add preset" : "Save name"}</Button>
+        <Button type="button" variant="ghost" disabled={busy} onClick={() => { setEditor(null); setError(null); }}>Cancel</Button>
+        <Button type="button" disabled={busy || conflict || !editor.draft.model.trim()} onClick={saveDraft}>{pending === "save" ? "Saving…" : editor.isNew ? "Add preset" : "Save name"}</Button>
       </div>
     </div>;
   }
@@ -138,26 +138,23 @@ export function PresetPicker(props: PresetPickerProps) {
         }
       }}
     >
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          disabled={props.disabled}
-          aria-label={`Choose preset${selected ? `: ${selected.name}` : ""}`}
-          className="flex min-w-0 items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-muted-foreground hover:bg-state-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          {selected && props.renderProviderIcon ? (
-            props.renderProviderIcon(selected.providerId)
-          ) : (
-            <Icon name="Bot" className="size-4 shrink-0" />
-          )}
-          <span className="min-w-0 truncate text-left" title={selected ? presetTitle(selected) : undefined}>
-            <span className="font-medium text-foreground">{selected?.name ?? "Choose preset"}</span>
-            {selected && selected.name !== presetSpec(selected) ? (
-              <>{" "}<span className="ml-1 text-muted-foreground">{presetSpec(selected)}</span></>
-            ) : null}
-          </span>
-          <Icon name="ChevronDown" className="size-3.5 opacity-50" />
-        </button>
+      <PopoverTrigger
+        disabled={props.disabled}
+        aria-label={`Choose preset${selected ? `: ${selected.name}` : ""}`}
+        className="flex min-w-0 items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-muted-foreground hover:bg-state-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        {selected && props.renderProviderIcon ? (
+          props.renderProviderIcon(selected.providerId)
+        ) : (
+          <Icon name="Bot" className="size-4 shrink-0" />
+        )}
+        <span className="min-w-0 truncate text-left" title={selected ? presetTitle(selected) : undefined}>
+          <span className="font-medium text-foreground">{selected?.name ?? "Choose preset"}</span>
+          {selected && selected.name !== presetSpec(selected) ? (
+            <>{" "}<span className="ml-1 text-muted-foreground">{presetSpec(selected)}</span></>
+          ) : null}
+        </span>
+        <Icon name="ChevronDown" className="size-3.5 opacity-50" />
       </PopoverTrigger>
       <PopoverContent
         align="start"

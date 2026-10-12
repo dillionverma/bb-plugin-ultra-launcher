@@ -91,7 +91,7 @@ export function PresetSettings() {
 
   return (
     <div className="flex flex-col gap-4" data-preset-settings="">
-      {store.error ? <p role="alert" className="text-sm text-destructive">{store.error} <Button variant="ghost" size="sm" onClick={() => void store.reload()}>Reload</Button></p> : null}
+      {store.error ? <p role="alert" className="text-sm text-destructive">{store.error} <Button variant="ghost" onClick={() => void store.reload()}>Reload</Button></p> : null}
       {draft ? (
         <form
           className="flex flex-col gap-5"
@@ -114,7 +114,7 @@ export function PresetSettings() {
           }}
         >
           <div className="flex items-center gap-2">
-            <Button type="button" variant="ghost" size="sm" disabled={saving} onClick={finishEditing} aria-label="Back to presets"><Icon name="ChevronLeft" />Presets</Button>
+            <Button type="button" variant="ghost" disabled={saving} onClick={finishEditing} aria-label="Back to presets"><Icon name="ChevronLeft" />Presets</Button>
             <span className="text-sm text-muted-foreground">/</span>
             <span className="text-sm font-medium">{existing ? "Edit preset" : "New preset"}</span>
           </div>
@@ -134,16 +134,16 @@ export function PresetSettings() {
           </FieldGroup>
           {conflict ? <p role="alert" className="text-sm text-destructive">Presets changed in another window. Cancel and reopen this preset to edit the latest version.</p> : null}
           <div className="flex items-center justify-end gap-2 pt-1">
-            {existing ? <Button type="button" variant="ghost" size="sm" className="mr-auto" disabled={saving || conflict} onClick={() => void persist(store.state.presets.filter((preset) => preset.id !== draft.id), editRevision, true)}>Delete preset</Button> : null}
-            <Button type="button" variant="ghost" size="sm" disabled={saving} onClick={finishEditing}>Cancel</Button>
-            <Button type="submit" size="sm" disabled={saving || conflict || !draft.model.trim()}>{saving ? "Saving…" : "Save preset"}<span aria-hidden="true" className="opacity-50">↵</span></Button>
+            {existing ? <Button type="button" variant="ghost" className="mr-auto" disabled={saving || conflict} onClick={() => void persist(store.state.presets.filter((preset) => preset.id !== draft.id), editRevision, true)}>Delete preset</Button> : null}
+            <Button type="button" variant="ghost" disabled={saving} onClick={finishEditing}>Cancel</Button>
+            <Button type="submit" disabled={saving || conflict || !draft.model.trim()}>{saving ? "Saving…" : "Save preset"}<span aria-hidden="true" className="opacity-50">↵</span></Button>
           </div>
         </form>
       ) : (
         <>
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs text-muted-foreground">{store.state.presets.length} presets <span className="px-1 opacity-50">·</span> Drag to reorder</p>
-            <Button ref={addRef} type="button" size="sm" disabled={locked || !providers.length || store.state.presets.length >= 30}
+            <Button ref={addRef} type="button" disabled={locked || !providers.length || store.state.presets.length >= 30}
               onClick={() => edit({
                 ...(store.state.presets[0] ?? { providerId: providers[0].id, model: "", reasoningLevel: "medium", serviceTier: "default" }),
                 id: crypto.randomUUID(), name: "",
@@ -171,9 +171,9 @@ export function PresetSettings() {
           <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
             {confirmRestore ? <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <span>{store.state.presets.length ? `Replace your ${store.state.presets.length} preset${store.state.presets.length === 1 ? "" : "s"}?` : "Add the recommended presets?"}</span>
-              <Button type="button" size="sm" disabled={saving} onClick={() => void restore()}>{saving ? "Restoring…" : "Restore"}</Button>
-              <Button type="button" size="sm" variant="ghost" disabled={saving} onClick={() => setConfirmRestore(false)}>Cancel</Button>
-            </div> : <Button type="button" size="sm" variant="ghost" disabled={locked} onClick={() => setConfirmRestore(true)}>Restore defaults</Button>}
+              <Button type="button" disabled={saving} onClick={() => void restore()}>{saving ? "Restoring…" : "Restore"}</Button>
+              <Button type="button" variant="ghost" disabled={saving} onClick={() => setConfirmRestore(false)}>Cancel</Button>
+            </div> : <Button type="button" variant="ghost" disabled={locked} onClick={() => setConfirmRestore(true)}>Restore defaults</Button>}
             <span role="status" className="text-xs text-muted-foreground">{saving ? "Saving…" : saved ? "Changes saved" : ""}</span>
           </div>
         </>

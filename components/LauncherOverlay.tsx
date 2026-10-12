@@ -19,10 +19,8 @@ import type { rpcContract } from "../server";
 import type { NewThreadRequest } from "@get-bb/plugin-sdk";
 import { cn } from "../lib/utils";
 import { usePortalScopeProps } from "../lib/portal-scope";
-import {
-  PersistentResponsiveDrawerShell,
-  useResponsiveOverlayBehavior,
-} from "./ui/responsive-overlay";
+import { PersistentResponsiveDrawerShell } from "./ui/responsive-overlay";
+import { useIsCompactViewport } from "./ui/use-media-query";
 
 export const OPEN_EVENT = "ultra-launcher:open";
 
@@ -279,8 +277,7 @@ export function LauncherOverlay() {
   }, [composerRoot]);
 
   const scopeProps = usePortalScopeProps();
-  const { presentation } = useResponsiveOverlayBehavior();
-  const isDrawer = presentation === "drawer";
+  const isDrawer = useIsCompactViewport();
   const isDrawerRef = useRef(isDrawer);
   isDrawerRef.current = isDrawer;
 
@@ -342,13 +339,6 @@ export function LauncherOverlay() {
     return () => document.removeEventListener("keydown", onEscape, true);
   }, [open]);
 
-  // Ask the embedded composer to submit itself. It owns the submit guard and
-  // the onSubmit call; both our buttons and the Ctrl+Enter hotkey go through
-  // its form so every viewport takes the same host path.
-  const submitComposer = useCallback(() => {
-    submitHostComposer(wrapperRef.current);
-  }, []);
-
   // A tap must not move focus off
   // the editor first: on a phone that dismisses the keyboard, the sheet drops
   // to fill the space, and the tap lands on a moving target. The host guards
@@ -368,9 +358,9 @@ export function LauncherOverlay() {
     (next: DispatchMode) => {
       modeRef.current = next;
       setMode(next);
-      submitComposer();
+      submitHostComposer(wrapperRef.current);
     },
-    [submitComposer],
+    [],
   );
 
   const onKeyDownCapture = useCallback(
@@ -440,7 +430,7 @@ export function LauncherOverlay() {
       ref={attachComposer}
       onKeyDownCapture={onKeyDownCapture}
       data-ultra-launcher-presets=""
-      data-presentation={presentation}
+      data-presentation={isDrawer ? "drawer" : "floating"}
       style={
         isDrawer
           ? ({
