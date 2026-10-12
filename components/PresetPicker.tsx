@@ -1,12 +1,12 @@
 import { SortablePresets } from "./SortablePresets";
 import { useRef, useState, type ReactNode } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
-import { Icon } from "./ui/icon";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { effortLabel, isActivePreset, parsePreset, type ModelPreset } from "../lib/presets";
 import type { PresetSelectionProps } from "../lib/model-picker";
 import type { ExperimentalProviderModelPickerValue } from "@get-bb/plugin-sdk";
+import { experimental_Icon as Icon } from "@get-bb/plugin-sdk/app";
 import { cn } from "../lib/utils";
 
 export interface PresetPickerProps extends PresetSelectionProps {

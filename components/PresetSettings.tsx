@@ -2,6 +2,7 @@ import { SortablePresets } from "./SortablePresets";
 import { PresetProviderLogo } from "./PresetProviderLogo";
 import { useEffect, useId, useRef, useState } from "react";
 import {
+  experimental_Icon as Icon,
   experimental_ProviderModelPicker as ProviderModelPicker,
   experimental_useProviders as useProviders,
 } from "@get-bb/plugin-sdk/app";
@@ -11,7 +12,6 @@ import { EDIT_PRESETS_EVENT, effortLabel, parsePreset, type ModelPreset } from "
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Field, FieldGroup, FieldLabel } from "./ui/field";
-import { Icon } from "./ui/icon";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
 
 const suggestedName = (preset: ModelPreset) => `${preset.model} · ${effortLabel(preset.reasoningLevel)}`.slice(0, 80);
@@ -114,7 +114,7 @@ export function PresetSettings() {
           }}
         >
           <div className="flex items-center gap-2">
-            <Button type="button" variant="ghost" size="sm" disabled={saving} onClick={finishEditing} aria-label="Back to presets"><Icon name="ChevronLeft" data-icon="inline-start" />Presets</Button>
+            <Button type="button" variant="ghost" size="sm" disabled={saving} onClick={finishEditing} aria-label="Back to presets"><Icon name="ChevronLeft" />Presets</Button>
             <span className="text-sm text-muted-foreground">/</span>
             <span className="text-sm font-medium">{existing ? "Edit preset" : "New preset"}</span>
           </div>
@@ -148,7 +148,7 @@ export function PresetSettings() {
                 ...(store.state.presets[0] ?? { providerId: providers[0].id, model: "", reasoningLevel: "medium", serviceTier: "default" }),
                 id: crypto.randomUUID(), name: "",
               })}>
-              <Icon name="Plus" data-icon="inline-start" />Add preset
+              <Icon name="Plus" />Add preset
             </Button>
           </div>
           {store.loading ? <p role="status" className="py-4 text-sm text-muted-foreground">Loading presets…</p> : (

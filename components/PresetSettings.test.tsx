@@ -22,6 +22,7 @@ vi.mock("../hooks/usePresets", () => ({
   }),
 }));
 vi.mock("@get-bb/plugin-sdk/app", () => ({
+  experimental_Icon: () => null,
   experimental_useProviders: () => ({ providers: [{ id: "codex" }] }),
   experimental_ProviderIcon: () => null,
   experimental_ProviderModelPicker: ({ value, onChange }: Pick<ExperimentalProviderModelPickerProps, "value" | "onChange">) => {

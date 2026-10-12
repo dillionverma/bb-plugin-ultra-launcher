@@ -3,7 +3,7 @@ import { DndContext, closestCenter, MouseSensor, TouchSensor, KeyboardSensor, us
 import { SortableContext, useSortable, sortableKeyboardCoordinates, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { ModelPreset } from "../lib/presets";
-import { Icon } from "./ui/icon";
+import { experimental_Icon as Icon } from "@get-bb/plugin-sdk/app";
 import { cn } from "../lib/utils";
 
 type Snapshot = { presets: ModelPreset[]; revision: number };

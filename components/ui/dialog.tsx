@@ -10,7 +10,7 @@ import {
   ResponsiveDrawerShell,
   stripRadixContentProps,
 } from "./responsive-overlay.js";
-import { Icon } from "../../components/ui/icon.js";
+import { experimental_Icon as Icon } from "@get-bb/plugin-sdk/app";
 
 interface ResponsiveDialogContextValue extends ResponsiveOverlayContextValue {
   titleId: string;

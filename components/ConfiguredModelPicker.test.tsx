@@ -16,6 +16,7 @@ vi.mock("../hooks/usePresets", () => ({
   usePresets: () => ({ state: mocks.state, save: vi.fn(), loading: false, error: null, reload: vi.fn() }),
 }));
 vi.mock("@get-bb/plugin-sdk/app", () => ({
+  experimental_Icon: () => null,
   experimental_useProviders: () => ({ providers: [{ id: "codex" }] }),
   experimental_ProviderIcon: () => null,
 }));
