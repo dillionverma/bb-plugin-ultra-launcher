@@ -13,6 +13,10 @@ export function createPresetStore(storage: {
   defaults?(): Promise<ModelPreset[]>;
 }) {
   let queue: Promise<unknown> = Promise.resolve();
+  async function readSaved(): Promise<PresetState> {
+    const value = await storage.read();
+    return value == null ? EMPTY_PRESETS : presetStateSchema.parse(value);
+  }
   async function read() {
     const value = await storage.read();
     if (value != null) return presetStateSchema.parse(value);
@@ -31,7 +35,7 @@ export function createPresetStore(storage: {
   }
   function save(expectedRevision: number, presets: ModelPreset[]) {
     return enqueue(async () => {
-      const current = await read();
+      const current = await readSaved();
       if (current.revision !== expectedRevision)
         throw new Error("Presets changed in another window. Reload before saving.");
       const next = presetStateSchema.parse({ revision: current.revision + 1, presets });
@@ -45,7 +49,7 @@ export function createPresetStore(storage: {
       const presets = (await storage.defaults?.()) ?? [];
       if (!presets.length)
         throw new Error("No default presets are available for this machine's providers.");
-      const current = await read();
+      const current = await readSaved();
       const next = presetStateSchema.parse({ revision: current.revision + 1, presets });
       await storage.write(next);
       return next;

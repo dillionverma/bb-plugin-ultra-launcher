@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { createSelectionStore, resolveSelected, NO_SELECTION } from "./selection-store";
+import { createSelectionStore } from "./selection-store";
+import { resolveSelected, NO_SELECTION } from "./selection";
 
 function memoryStorage(initial: unknown = null) {
   let value = initial;

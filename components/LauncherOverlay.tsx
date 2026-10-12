@@ -4,57 +4,9 @@ import { usePresets } from "../hooks/usePresets";
 import { useSelectedPreset } from "../hooks/useSelectedPreset";
 import { resolveSelected } from "../lib/selection";
 import { submitHostComposer } from "../lib/submit-composer";
-// The floating "quick new thread" dialog.
-//
-// Registered as an app overlay (app.slots.experimental_appOverlay), so it is
-// mounted once per window, outside any route layout, and stays available on
-// every screen — including while you are reading another thread.
-//
-// Open it with Ctrl/Cmd+N, or the "Ultra Launcher: new thread" command-palette
-// row (which dispatches OPEN_EVENT on window). In the desktop app Ctrl/Cmd+N
-// only reaches this listener once server.ts has moved BB's own `thread.new`
-// menu accelerator off it (see "Hotkey takeover" there).
-//
-// Dispatch:
-//   Enter / "Create"             -> create the thread and navigate to it
-//   Ctrl/Cmd+Enter / "Background" -> create the thread, stay where you are,
-//                                    show a toast with an Open action
-// Both buttons submit the host composer's own form (lib/submit-composer.ts),
-// which is the one path that works on every viewport: on a phone the host
-// treats Enter as a newline, so faking a keypress would do nothing there.
-//
-// Model presets: stock BB has no slot for replacing the composer's model
-// picker, so the dialog does it from the outside — it hides the host button
-// with scoped CSS, renders its own presets popover in that spot, and feeds the
-// chosen preset back through the composer's `default*` seed props. Seeding is
-// the host's own supported path (it marks the values caller-explicit so
-// threads.spawn keeps them). One documented cost: the host re-seeds every
-// execution and environment selection when a seed changes, so switching preset
-// mid-compose also resets a project/environment the user picked by hand in the
-// same dialog. The remembered preset makes that rare — the common open already
-// has the right model.
-//
-// Design: a single frameless card. BB's host composer renders the editor and
-// every picker; the plugin re-arranges that fixed DOM with scoped CSS so the
-// project / environment / permission row becomes the card header, the editor
-// fills the body, and the model picker sits in the footer next to our own
-// "Create ⏎" button.
-//
-// Presentation: on a regular viewport the card floats near the top of the
-// window. On a compact viewport (phones, ≤767px) a floating card reads as a
-// stranded box that the keyboard shoves around, so the same card is rendered
-// inside PersistentResponsiveDrawerShell instead — a bottom sheet with a drag
-// handle that sits on top of the software keyboard. The footer also restacks
-// into two rows (presets, then + / Background / Create) because a phone is not
-// wide enough for the single-row desktop footer.
-//
-// Performance: mounting the host composer costs ~200ms of main-thread work,
-// which read as lag on every Cmd+N. The dialog is therefore a plain portal
-// that stays mounted and is hidden with display:none while closed, so opening
-// is a style flip plus a 150ms fade. (A Radix Dialog kept mounted this way
-// leaves its dismiss layer live while hidden and swallows Escape app-wide,
-// so the few things we need — backdrop click, Escape, focus — are hand-rolled.)
-import { useCallback, useEffect, useRef, useState } from "react";
+// The host composer stays mounted while closed to retain the draft. Preset
+// changes use BB's seed props, which also reset project/environment choices.
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { BorderBeam } from "border-beam";
 import {
@@ -64,6 +16,7 @@ import {
 } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
 import type { rpcContract } from "../server";
+import type { NewThreadRequest } from "@get-bb/plugin-sdk";
 import { cn } from "@/lib/utils";
 import { usePortalScopeProps } from "@/lib/portal-scope";
 import {
@@ -71,7 +24,7 @@ import {
   useResponsiveOverlayBehavior,
 } from "@/components/ui/responsive-overlay";
 
-export const OPEN_EVENT = "quick-thread:open";
+export const OPEN_EVENT = "ultra-launcher:open";
 
 type DispatchMode = "open" | "background";
 
@@ -86,7 +39,7 @@ function isNewThreadHotkey(event: KeyboardEvent): boolean {
   );
 }
 
-// Host composer DOM, top to bottom (see README "Design notes"):
+// Host composer DOM, top to bottom:
 //   div.w-full
 //     div.mb-2            attachments / banners (often empty)
 //     form.group/promptbox editor + bottom row (+, model picker, voice, submit)
@@ -129,31 +82,57 @@ const COMPOSER_RESTYLE = [
   // Only the editor scroller gets body padding; suggestion lists scroll too.
   "[&_form_.overflow-y-auto:has([contenteditable])]:px-5",
   "[&_form_.overflow-y-auto:has([contenteditable])]:pt-5",
-  // Footer row inside the form (div.select-none, not the buttons that also
-  // carry select-none): keep the model picker, hide the icon-only submit,
-  // voice and Aide buttons; we render the Create button ourselves.
-  "[&_form_div.select-none]:px-5 [&_form_div.select-none]:pb-4 [&_form_div.select-none]:pt-3",
-  "[&_form_div.select-none]:pr-[14.5rem]",
-  // Left group holds [+, model]; reverse it so "+" sits beside Create.
-  "[&_form_div.select-none>div:first-child]:flex-row-reverse",
-  "[&_form_div.select-none>div:first-child]:justify-between",
-  "[&_form_div.select-none>div:first-child]:gap-3",
   "[&_form_button[type=submit]]:hidden",
   "[&_form_button[title^='Talk']]:hidden",
-  "[&_form_div.select-none>div:last-child>button]:hidden",
-  // Model / effort trigger reads like a plain label with a chevron.
-  "[&_form_div.select-none_button]:h-9 [&_form_div.select-none_button]:text-sm",
-  "[&_form_div.select-none_button]:text-foreground",
+  "[&_form_button[aria-label='Start_voice_input']]:hidden",
 
 ].join(" ");
 
-// Applied only while the dialog renders its own presets popover: hide the
-// host's model button and keep the "+" clear of the space ours occupies.
-// Plain CSS rather than an arbitrary Tailwind variant because the selector
-// matches on an aria-label containing spaces and a comma.
 const PRESET_PICKER_CSS = `
-[data-quick-thread-presets] button[aria-label^="Provider, model and reasoning"] { display: none; }
-[data-quick-thread-presets][data-presentation="floating"] [data-promptbox-action-row] { padding-left: 14rem; }
+[data-ultra-launcher-presets] button[aria-label^="Provider, model and reasoning"] { display: none; }
+[data-ultra-launcher-presets] [data-promptbox-action-row] {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .75rem 1rem 1rem;
+}
+[data-ultra-launcher-presets] [data-promptbox-action-row] > [data-promptbox-standard-actions] {
+  flex: 0 0 auto;
+  gap: 0;
+}
+[data-ultra-launcher-presets] [data-promptbox-action-row] > [data-promptbox-expanded-only] { order: 0; }
+[data-ultra-launcher-presets] [data-ultra-launcher-model] { order: 1; flex: 1 1 0%; min-width: 0; }
+[data-ultra-launcher-presets] [data-promptbox-action-row] > [data-promptbox-standard-actions]:not([data-promptbox-expanded-only]) { order: 2; }
+[data-ultra-launcher-presets] [data-ultra-launcher-dispatch] { order: 3; flex: 0 0 auto; }
+[data-ultra-launcher-presets] [data-promptbox-action-row] > [data-promptbox-standard-actions]:not([data-promptbox-expanded-only]):not(:has(button[aria-label="Send options"]:not([aria-hidden="true"]))) { display: none; }
+[data-ultra-launcher-presets] [data-promptbox-action-row] [data-plugin-composer-action-plugin] { display: none; }
+[data-ultra-launcher-presets] [data-promptbox-submit-disabled-reason] { display: none; }
+[data-ultra-launcher-presets] [data-promptbox-send-menu] { margin: 0; background-color: transparent; color: var(--muted-foreground); }
+[data-ultra-launcher-presets] [data-promptbox-action-row] button { height: 2.25rem; }
+[data-ultra-launcher-presets] button[aria-label="Prompt actions"],
+[data-ultra-launcher-presets] button[aria-label="Send options"]:not([aria-hidden="true"]) {
+  width: 2.25rem;
+  padding: 0;
+  margin: 0;
+  border-radius: .5rem;
+  color: var(--muted-foreground);
+}
+@layer base {
+  [data-ultra-launcher-presets] form button[aria-label="Send options"]:hover {
+    background-color: var(--state-hover) !important;
+    color: var(--foreground) !important;
+  }
+  [data-ultra-launcher-presets] form button[aria-label="Send options"][data-state="open"] {
+    background-color: var(--state-active) !important;
+    color: var(--foreground) !important;
+  }
+}
+[data-ultra-launcher-presets][data-presentation="drawer"] [data-promptbox-action-row] { flex-wrap: wrap; }
+[data-ultra-launcher-presets][data-presentation="drawer"] [data-ultra-launcher-model] { order: -1; flex-basis: 100%; }
+[data-ultra-launcher-presets][data-presentation="drawer"] [data-promptbox-action-row] > [data-promptbox-expanded-only] { margin-right: auto; }
+[data-ultra-launcher-presets][data-presentation="drawer"] [data-promptbox-action-row] button { height: 2.5rem; }
+[data-ultra-launcher-presets][data-presentation="drawer"] button[aria-label="Prompt actions"],
+[data-ultra-launcher-presets][data-presentation="drawer"] button[aria-label="Send options"]:not([aria-hidden="true"]) { width: 2.5rem; }
 `;
 
 // Compact viewport, plain CSS. The bottom sheet is capped at
@@ -164,14 +143,14 @@ const PRESET_PICKER_CSS = `
 // below the keyboard where it cannot be tapped. The 5rem floor keeps the
 // editor usable on very short viewports; the sheet scrolls past it instead.
 const DRAWER_CSS = `
-[data-quick-thread-presets][data-presentation="drawer"] form .overflow-y-auto:has([contenteditable]) {
+[data-ultra-launcher-presets][data-presentation="drawer"] form .overflow-y-auto:has([contenteditable]) {
   max-height: max(5rem, min(38dvh, calc(92dvh - var(--bb-drawer-keyboard-inset, 0px) - 18rem)));
 }
 `;
 
 // Compact-viewport overrides layered on top of COMPOSER_RESTYLE. The footer
 // becomes two rows: the presets trigger gets the upper row to itself (the host
-// action row reserves it with top padding), and the lower row holds the host
+// action row wraps naturally), and the lower row holds the host
 // "+" on the left with our Background / Create on the right.
 const COMPOSER_RESTYLE_DRAWER = [
   // Header pickers wrap instead of overflowing a narrow card.
@@ -183,12 +162,6 @@ const COMPOSER_RESTYLE_DRAWER = [
   "[&_form_.overflow-y-auto:has([contenteditable])]:px-4",
   "[&_form_.overflow-y-auto:has([contenteditable])]:pt-4",
   "[&_form_[role=textbox]]:text-base",
-  // Footer: reserve the upper row for presets, keep "+" on the left.
-  "[&_form_div.select-none]:px-4 [&_form_div.select-none]:pt-[3.75rem]",
-  "[&_form_div.select-none]:pr-[13rem]",
-  "[&_form_div.select-none>div:first-child]:flex-row",
-  "[&_form_div.select-none>div:first-child]:justify-start",
-  "[&_form_div.select-none_button]:h-10",
   // Attachments row hugs the narrower body padding.
   "[&_.w-full>.mb-2]:mx-3",
   // The @-mention list cannot hang below a bottom sheet; open it upward.
@@ -267,7 +240,7 @@ const prefersReducedMotion = () =>
   typeof window !== "undefined" &&
   window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-export function QuickThreadOverlay() {
+export function LauncherOverlay() {
   const nav = useBbNavigate();
   const rpc = useRpc<typeof rpcContract>();
   useEffect(() => { const close = () => setOpen(false); window.addEventListener(EDIT_PRESETS_EVENT, close); return () => window.removeEventListener(EDIT_PRESETS_EVENT, close); }, []);
@@ -286,6 +259,24 @@ export function QuickThreadOverlay() {
   const modeRef = useRef<DispatchMode>("open");
   modeRef.current = mode;
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const [composerRoot, setComposerRoot] = useState<HTMLDivElement | null>(null);
+  const [footer, setFooter] = useState<HTMLElement | null>(null);
+  const attachComposer = useCallback((node: HTMLDivElement | null) => {
+    wrapperRef.current = node;
+    setComposerRoot(node);
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!composerRoot) {
+      setFooter(null);
+      return;
+    }
+    const syncFooter = () => setFooter(composerRoot.querySelector<HTMLElement>("[data-promptbox-action-row]"));
+    syncFooter();
+    const observer = new MutationObserver(syncFooter);
+    observer.observe(composerRoot, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [composerRoot]);
 
   const scopeProps = usePortalScopeProps();
   const { presentation } = useResponsiveOverlayBehavior();
@@ -358,7 +349,7 @@ export function QuickThreadOverlay() {
     submitHostComposer(wrapperRef.current);
   }, []);
 
-  // Our buttons sit over the host's footer. A tap must not move focus off
+  // A tap must not move focus off
   // the editor first: on a phone that dismisses the keyboard, the sheet drops
   // to fill the space, and the tap lands on a moving target. The host guards
   // its own send button the same way.
@@ -421,13 +412,12 @@ export function QuickThreadOverlay() {
   );
 
   const handleSubmit = useCallback(
-    async (request: unknown) => {
+    async (request: NewThreadRequest) => {
       const chosen = modeRef.current;
       setBusy(true);
       try {
         const { threadId } = await rpc.call("create_thread", {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          request: request as any,
+          request: { ...request },
         });
         setOpen(false);
         setMode("open");
@@ -447,17 +437,14 @@ export function QuickThreadOverlay() {
 
   const card = (
     <div
-      ref={wrapperRef}
+      ref={attachComposer}
       onKeyDownCapture={onKeyDownCapture}
-      data-quick-thread-presets=""
+      data-ultra-launcher-presets=""
       data-presentation={presentation}
-      // Drawer: the card's bottom edge sits below the viewport (see the beam
-      // wrapper's negative margin), so footer padding and every absolutely
-      // positioned footer control are lifted by this inset.
       style={
         isDrawer
           ? ({
-              "--ql-inset": "calc(1.5rem + env(safe-area-inset-bottom))",
+              "--ultra-launcher-inset": "calc(1.5rem + env(safe-area-inset-bottom))",
             } as React.CSSProperties)
           : undefined
       }
@@ -471,7 +458,7 @@ export function QuickThreadOverlay() {
               // the beam can wrap it. Top padding leaves room for the shell's
               // drag handle, which overlays the card's top edge.
               "rounded-t-2xl border border-b-0 border-border/70 pt-8",
-              "pb-[var(--ql-inset)]",
+              "pb-[var(--ultra-launcher-inset)]",
               CARD_SHADOW,
               COMPOSER_RESTYLE_DRAWER,
             )
@@ -481,96 +468,72 @@ export function QuickThreadOverlay() {
       <style>{PRESET_PICKER_CSS}</style>
       {isDrawer ? <style>{DRAWER_CSS}</style> : null}
       <NewThreadComposer
-        {...{ experimental_ModelPicker: ConfiguredModelPicker }}
         defaultPermissionMode="full"
         defaultProviderId={preset?.providerId}
         defaultModel={preset?.model}
         defaultReasoningLevel={preset?.reasoningLevel}
         defaultServiceTier={preset?.serviceTier}
         focusRequest={focusNonce}
-        draftKey="quick-thread"
+        draftKey="ultra-launcher"
         layout="document"
         placeholder="What do you want to work on?"
         onSubmit={handleSubmit}
       />
 
-      {/* Presets popover, anchored over the footer slot the host's own model
-          button occupies (hidden by PRESET_PICKER_CSS). In the drawer it gets
-          the upper footer row to itself. */}
-      <div
-        className={cn(
-          "absolute flex items-center",
-          isDrawer
-            ? "bottom-[calc(3.75rem+var(--ql-inset))] left-3 max-w-[calc(100%-1.5rem)]"
-            : "bottom-4 left-4 max-w-[13rem]",
-        )}
-      >
-        <ConfiguredModelPicker
-          providerId={preset?.providerId ?? ""}
-          model={preset?.model ?? ""}
-          reasoningLevel={preset?.reasoningLevel ?? "medium"}
-          serviceTier={preset?.serviceTier ?? "default"}
-          disabled={busy}
-          onPresetSelect={applyPreset}
-        />
-      </div>
-      {presetError ? (
-        <p
-          role="alert"
-          className={cn(
-            "absolute left-5 text-xs text-destructive",
-            isDrawer ? "bottom-[var(--ql-inset)]" : "bottom-0",
-          )}
-        >
-          {presetError}
-        </p>
+      {footer ? createPortal(
+        <>
+          <div data-ultra-launcher-model="">
+            <ConfiguredModelPicker
+              providerId={preset?.providerId ?? ""}
+              model={preset?.model ?? ""}
+              reasoningLevel={preset?.reasoningLevel ?? "medium"}
+              serviceTier={preset?.serviceTier ?? "default"}
+              disabled={busy}
+              onPresetSelect={applyPreset}
+            />
+          </div>
+          <div data-ultra-launcher-dispatch="" className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={busy}
+              title="Create and keep working here (⌘/Ctrl+Enter)"
+              onPointerDown={keepEditorFocus}
+              onClick={() => dispatchWith("background")}
+              className={cn(
+                "pointer-events-auto inline-flex items-center gap-1.5 rounded-lg px-2.5 text-sm",
+                "text-muted-foreground transition-colors hover:bg-state-hover hover:text-foreground",
+                "disabled:pointer-events-none disabled:opacity-50",
+                isDrawer ? "h-10" : "h-9",
+              )}
+            >
+              Background
+              {isDrawer ? null : (
+                <kbd className="font-sans text-xs text-subtle-foreground">⌘↵</kbd>
+              )}
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onPointerDown={keepEditorFocus}
+              onClick={() => dispatchWith("open")}
+              className={cn(
+                "pointer-events-auto inline-flex items-center gap-2 rounded-lg px-3.5 text-sm font-medium",
+                "bg-foreground text-background transition-colors hover:bg-foreground/90",
+                "disabled:pointer-events-none disabled:opacity-50",
+                isDrawer ? "h-10 px-4" : "h-9",
+                mode === "open" && busy && "opacity-80",
+              )}
+            >
+              Create
+              {isDrawer ? null : (
+                <span aria-hidden className="text-xs opacity-70">↵</span>
+              )}
+            </button>
+          </div>
+        </>,
+        footer,
       ) : null}
-
-      {/* Our own dispatch controls, anchored over the composer's footer row.
-          We own the right side. */}
-      <div
-        className={cn(
-          "pointer-events-none absolute right-4 flex items-center gap-1.5",
-          isDrawer ? "bottom-[calc(1rem+var(--ql-inset))]" : "bottom-4",
-        )}
-      >
-        <button
-          type="button"
-          disabled={busy}
-          title="Create and keep working here (⌘/Ctrl+Enter)"
-          onPointerDown={keepEditorFocus}
-          onClick={() => dispatchWith("background")}
-          className={cn(
-            "pointer-events-auto inline-flex items-center gap-1.5 rounded-lg px-2.5 text-sm",
-            "text-muted-foreground transition-colors hover:bg-state-hover hover:text-foreground",
-            "disabled:pointer-events-none disabled:opacity-50",
-            isDrawer ? "h-10" : "h-9",
-          )}
-        >
-          Background
-          {isDrawer ? null : (
-            <kbd className="font-sans text-xs text-subtle-foreground">⌘↵</kbd>
-          )}
-        </button>
-        <button
-          type="button"
-          disabled={busy}
-          onPointerDown={keepEditorFocus}
-          onClick={() => dispatchWith("open")}
-          className={cn(
-            "pointer-events-auto inline-flex items-center gap-2 rounded-lg px-3.5 text-sm font-medium",
-            "bg-foreground text-background transition-colors hover:bg-foreground/90",
-            "disabled:pointer-events-none disabled:opacity-50",
-            isDrawer ? "h-10 px-4" : "h-9",
-            mode === "open" && busy && "opacity-80",
-          )}
-        >
-          Create
-          {isDrawer ? null : (
-            <span aria-hidden className="text-xs opacity-70">↵</span>
-          )}
-        </button>
-      </div>
+      {presetError ? <p role="alert" className="px-5 pb-3 text-xs text-destructive">{presetError}</p> : null}
     </div>
   );
 

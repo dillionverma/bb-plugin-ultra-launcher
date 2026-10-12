@@ -4,19 +4,12 @@ import { Slot } from "@radix-ui/react-slot";
 
 import { cn } from "../../lib/utils";
 import { usePortalScopeProps } from "../../lib/portal-scope";
-import { useBrowserDimmingModal } from "../../hooks/useBrowserDimmingModal";
 import {
   type ResponsiveOverlayContextValue,
   useResponsiveRoot,
-  MobileTrigger,
   ResponsiveDrawerShell,
   stripRadixContentProps,
 } from "./responsive-overlay.js";
-import {
-  blurActiveKeyboardInputBeforeOverlayOpen,
-  getOverlayTriggerClassName,
-  preventOverlayTriggerSelection,
-} from "./overlay-trigger.js";
 import { Icon } from "../../components/ui/icon.js";
 
 interface ResponsiveDialogContextValue extends ResponsiveOverlayContextValue {
@@ -104,86 +97,6 @@ function Dialog({
   );
 }
 
-const DialogTrigger = React.forwardRef<
-  HTMLButtonElement,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Trigger>
->(({ asChild, children, className, ...props }, ref) => {
-  const { isCompactViewport, open, onOpenChange } = useResponsiveDialog();
-
-  if (isCompactViewport) {
-    return (
-      <MobileTrigger
-        ref={ref}
-        asChild={asChild}
-        open={open}
-        onOpenChange={onOpenChange}
-        haspopup="dialog"
-        className={className}
-        {...props}
-      >
-        {children}
-      </MobileTrigger>
-    );
-  }
-
-  return (
-    <DialogPrimitive.Trigger
-      ref={ref}
-      asChild={asChild}
-      className={getOverlayTriggerClassName(className)}
-      onMouseDown={(event) => {
-        if (!open) {
-          blurActiveKeyboardInputBeforeOverlayOpen();
-        }
-        preventOverlayTriggerSelection(event);
-      }}
-      {...props}
-    >
-      {children}
-    </DialogPrimitive.Trigger>
-  );
-});
-DialogTrigger.displayName = "DialogTrigger";
-
-interface DialogCloseProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  asChild?: boolean;
-}
-
-const DialogClose = React.forwardRef<HTMLButtonElement, DialogCloseProps>(
-  ({ asChild, onClick, children, ...props }, ref) => {
-    const { isCompactViewport, onOpenChange } = useResponsiveDialog();
-
-    if (isCompactViewport) {
-      const Comp = asChild ? Slot : "button";
-      const handleClick: React.MouseEventHandler<HTMLButtonElement> = (
-        event,
-      ) => {
-        onClick?.(event);
-        if (!event.defaultPrevented) {
-          onOpenChange(false);
-        }
-      };
-      return (
-        <Comp ref={ref} onClick={handleClick} {...props}>
-          {children}
-        </Comp>
-      );
-    }
-
-    return (
-      <DialogPrimitive.Close
-        ref={ref}
-        asChild={asChild}
-        onClick={onClick}
-        {...props}
-      >
-        {children}
-      </DialogPrimitive.Close>
-    );
-  },
-);
-DialogClose.displayName = "DialogClose";
-
 const DialogOverlay = React.forwardRef<
   React.ComponentRef<typeof DialogPrimitive.Overlay>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
@@ -205,13 +118,6 @@ type DialogContentProps = React.ComponentPropsWithoutRef<
 > & {
   onAfterCloseAutoFocus?: () => void;
   hideCloseButton?: boolean;
-  /**
-   * Keep the content mounted (display:none) while closed so opening is a
-   * style flip instead of a full mount. Pair with `modal={false}` on Dialog:
-   * Radix's modal mode would otherwise lock scroll / aria-hide the app while
-   * closed. A plain backdrop is rendered in place of the modal overlay.
-   */
-  keepMounted?: boolean;
 };
 
 const DialogContent = React.forwardRef<HTMLDivElement, DialogContentProps>(
@@ -220,7 +126,6 @@ const DialogContent = React.forwardRef<HTMLDivElement, DialogContentProps>(
       className,
       children,
       hideCloseButton = false,
-      keepMounted = false,
       onAfterCloseAutoFocus,
       onCloseAutoFocus,
       ...props
@@ -229,7 +134,6 @@ const DialogContent = React.forwardRef<HTMLDivElement, DialogContentProps>(
   ) => {
     const { isCompactViewport, open, onOpenChange, titleId, descriptionId } =
       useResponsiveDialog();
-    useBrowserDimmingModal(open);
     const scopeProps = usePortalScopeProps();
 
     if (isCompactViewport) {
@@ -258,23 +162,10 @@ const DialogContent = React.forwardRef<HTMLDivElement, DialogContentProps>(
     }
 
     return (
-      <DialogPrimitive.Portal forceMount={keepMounted || undefined}>
+      <DialogPrimitive.Portal>
         <DialogOverlay />
-        {keepMounted ? (
-          // Always mounted: Radix portals each child separately, so a
-          // backdrop mounted later would land after (above) the content.
-          <div
-            aria-hidden
-            {...scopeProps}
-            className={cn(
-              "fixed inset-0 z-50 bg-black/40 animate-in fade-in-0 duration-150",
-              !open && "hidden",
-            )}
-          />
-        ) : null}
         <DialogPrimitive.Content
           ref={ref}
-          forceMount={keepMounted || undefined}
           {...scopeProps}
           onCloseAutoFocus={(event) => {
             onCloseAutoFocus?.(event);
@@ -282,7 +173,6 @@ const DialogContent = React.forwardRef<HTMLDivElement, DialogContentProps>(
           }}
           className={cn(
             "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg grid-cols-[minmax(0,1fr)] translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-sm duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-lg",
-            keepMounted && "data-[state=closed]:hidden",
             className,
           )}
           {...props}
@@ -311,20 +201,6 @@ const DialogHeader = ({
   />
 );
 DialogHeader.displayName = "DialogHeader";
-
-const DialogFooter = ({
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLDivElement>) => (
-  <div
-    className={cn(
-      "flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2",
-      className,
-    )}
-    {...props}
-  />
-);
-DialogFooter.displayName = "DialogFooter";
 
 const DialogTitle = React.forwardRef<
   HTMLHeadingElement,
@@ -427,12 +303,8 @@ DialogDescription.displayName = DialogPrimitive.Description.displayName;
 
 export {
   Dialog,
-  DialogOverlay,
-  DialogTrigger,
-  DialogClose,
   DialogContent,
   DialogHeader,
-  DialogFooter,
   DialogTitle,
   DialogDescription,
 };

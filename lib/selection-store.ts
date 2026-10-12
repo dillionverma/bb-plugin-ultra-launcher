@@ -1,8 +1,6 @@
 import { z } from "zod";
 import { NO_SELECTION, type SelectedPreset } from "./selection";
 
-export { NO_SELECTION, SELECTION_CHANNEL, resolveSelected, type SelectedPreset } from "./selection";
-
 export const selectedPresetSchema: z.ZodType<SelectedPreset, unknown> = z.object({
   presetId: z.string().min(1).max(80).nullable(),
 });

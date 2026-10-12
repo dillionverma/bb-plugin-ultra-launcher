@@ -12,7 +12,7 @@ import {
   stripRadixContentProps,
 } from "./responsive-overlay.js";
 import {
-  blurActiveKeyboardInputBeforeOverlayOpen,
+  blurActiveKeyboardInputWithin,
   getOverlayTriggerClassName,
   preventOverlayTriggerSelection,
 } from "./overlay-trigger.js";
@@ -92,7 +92,7 @@ const PopoverTrigger = React.forwardRef<
       className={getOverlayTriggerClassName(className)}
       onMouseDown={(event) => {
         if (!open) {
-          blurActiveKeyboardInputBeforeOverlayOpen();
+          blurActiveKeyboardInputWithin(null);
         }
         preventOverlayTriggerSelection(event);
       }}
@@ -202,22 +202,4 @@ const PopoverContent = React.forwardRef<
 );
 PopoverContent.displayName = "PopoverContent";
 
-const PopoverAnchor = React.forwardRef<
-  React.ComponentRef<typeof PopoverPrimitive.Anchor>,
-  React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Anchor>
->(({ children, ...props }, ref) => {
-  const { isCompactViewport } = useResponsivePopover();
-
-  if (isCompactViewport) {
-    return <>{children}</>;
-  }
-
-  return (
-    <PopoverPrimitive.Anchor ref={ref} {...props}>
-      {children}
-    </PopoverPrimitive.Anchor>
-  );
-});
-PopoverAnchor.displayName = "PopoverAnchor";
-
-export { Popover, PopoverTrigger, PopoverContent, PopoverAnchor };
+export { Popover, PopoverTrigger, PopoverContent };

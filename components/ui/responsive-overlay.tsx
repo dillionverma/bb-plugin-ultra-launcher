@@ -3,8 +3,6 @@ import { createPortal } from "react-dom";
 import { Slot } from "@radix-ui/react-slot";
 
 import {
-  blurActiveKeyboardInputBeforeOverlayOpen,
-  blurActiveKeyboardInputBeforeOverlayClose,
   blurActiveKeyboardInputWithin,
   getOverlayTriggerClassName,
   preventOverlayTriggerSelection,
@@ -39,7 +37,7 @@ function resetDrawerKeyboardStyles(drawerElement: HTMLElement | null): void {
   drawerElement.style.removeProperty(DRAWER_KEYBOARD_INSET_PROPERTY);
 }
 
-export function measureDrawerKeyboardOverlap({
+function measureDrawerKeyboardOverlap({
   layoutViewportHeight,
   visualViewportHeight,
   visualViewportOffsetTop,
@@ -129,7 +127,7 @@ export function useResponsiveRoot(
   const onOpenChange = React.useCallback(
     (next: boolean) => {
       if (open && !next && isCompactViewport) {
-        blurActiveKeyboardInputBeforeOverlayClose();
+        blurActiveKeyboardInputWithin(null);
       }
       if (!isControlled) {
         setInternalOpen(next);
@@ -180,7 +178,7 @@ export const MobileTrigger = React.forwardRef<
       onClick?.(e);
       if (!e.defaultPrevented) {
         if (!open) {
-          blurActiveKeyboardInputBeforeOverlayOpen();
+          blurActiveKeyboardInputWithin(null);
         }
         onOpenChange(!open);
       }
@@ -274,7 +272,7 @@ interface ResponsiveDrawerShellProps {
   children: React.ReactNode;
 }
 
-export function useResponsiveDrawerRealization({
+function useResponsiveDrawerRealization({
   open,
   enabled = true,
 }: {
@@ -521,7 +519,7 @@ interface UsePersistentOverlayFocusArgs {
   requestClose: () => void;
 }
 
-export function usePersistentOverlayFocus({
+function usePersistentOverlayFocus({
   onAfterCloseAutoFocus,
   onBeforeCloseAutoFocus,
   open,

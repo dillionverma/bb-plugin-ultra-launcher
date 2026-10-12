@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   EMPTY_PRESETS,
   isActivePreset,
-  movePreset,
   type ModelPreset,
   type PresetState,
 } from "./presets";
@@ -30,12 +29,6 @@ describe("preset settings", () => {
     expect(isActivePreset(preset, { ...preset, reasoningLevel: "low" })).toBe(false);
     expect(isActivePreset(preset, { ...preset, serviceTier: "fast" })).toBe(false);
     expect(isActivePreset(preset, { ...preset, providerId: "claude" })).toBe(false);
-  });
-  it("preserves saved ordering and ignores invalid moves", () => {
-    const other = { ...preset, id: "two" };
-    const list = [preset, other];
-    expect(movePreset(list, "two", -1)).toEqual([other, preset]);
-    expect(movePreset(list, "one", -1)).toBe(list);
   });
   it("serializes concurrent saves, rejects stale revisions, and stays usable after a conflict", async () => {
     let state: PresetState = EMPTY_PRESETS;
@@ -91,4 +84,16 @@ describe("default presets", () => {
       /No default presets/,
     );
   });
+  it("saves an explicit empty list before the first read without seeding", async () => {
+    const fixture = storage(null, [seeded]);
+    expect(await fixture.store.save(0, [])).toEqual({ revision: 1, presets: [] });
+    expect(await fixture.store.read()).toEqual({ revision: 1, presets: [] });
+    expect(fixture.resolved).toBe(0);
+  }, 1000);
+  it("restores defaults before the first read with one fresh revision", async () => {
+    const fixture = storage(null, [seeded]);
+    expect(await fixture.store.restoreDefaults()).toEqual({ revision: 1, presets: [seeded] });
+    expect(fixture.state).toEqual({ revision: 1, presets: [seeded] });
+    expect(fixture.resolved).toBe(1);
+  }, 1000);
 });

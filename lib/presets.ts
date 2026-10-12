@@ -23,7 +23,7 @@ export interface PresetState {
 }
 export const EMPTY_PRESETS: PresetState = { revision: 0, presets: [] };
 export const PRESETS_CHANNEL = "model-presets";
-export const EDIT_PRESETS_EVENT = "quick-thread:edit-presets";
+export const EDIT_PRESETS_EVENT = "ultra-launcher:edit-presets";
 
 function boundedString(value: unknown, max: number, trim: boolean): string | null {
   if (typeof value !== "string") return null;
@@ -84,13 +84,4 @@ export function isActivePreset(
     preset.serviceTier ===
       (selection.supportsServiceTier === false ? "default" : (selection.serviceTier ?? "default"))
   );
-}
-export function movePreset(presets: ModelPreset[], id: string, offset: number): ModelPreset[] {
-  const index = presets.findIndex((preset) => preset.id === id);
-  const next = index + offset;
-  if (index < 0 || next < 0 || next >= presets.length) return presets;
-  const result = [...presets];
-  const [item] = result.splice(index, 1);
-  result.splice(next, 0, item);
-  return result;
 }

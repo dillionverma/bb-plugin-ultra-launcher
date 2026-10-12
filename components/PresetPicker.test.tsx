@@ -1,8 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { QuickModelPicker, type PresetPickerProps } from "./QuickModelPicker";
+import { PresetPicker, type PresetPickerProps } from "./PresetPicker";
 import type { ModelPreset } from "../lib/presets";
-import type { ModelPickerProps } from "../lib/model-picker";
 const presets: ModelPreset[] = [
   {
     id: "opus",
@@ -21,7 +20,7 @@ const presets: ModelPreset[] = [
     serviceTier: "fast",
   },
 ];
-function props(): PresetPickerProps & ModelPickerProps {
+function props(): PresetPickerProps {
   return {
     presets,
     revision: 0,
@@ -30,21 +29,10 @@ function props(): PresetPickerProps & ModelPickerProps {
     onEdit: vi.fn(),
     onPresetSelect: vi.fn().mockResolvedValue(undefined),
     providerId: "claude",
-    providers: [],
     model: "opus",
-    models: [{ value: "hidden", label: "Do not show this model" }],
     reasoningLevel: "xhigh",
-    reasoningOptions: [],
     supportsServiceTier: false,
-    isLoading: false,
-    error: null,
     disabled: false,
-    canSelectModel: true,
-    canChangeProvider: true,
-    onModelChange: vi.fn(),
-    onProviderChange: vi.fn(),
-    onReasoningChange: vi.fn(),
-    onServiceTierChange: vi.fn(),
   };
 }
 function open() {
@@ -57,12 +45,11 @@ describe("preset-only picker", () => {
     const submit = vi.fn();
     render(
       <form onSubmit={submit}>
-        <QuickModelPicker {...value} />
+        <PresetPicker {...value} />
       </form>,
     );
     open();
     expect(screen.getAllByRole("menuitemradio")).toHaveLength(2);
-    expect(screen.queryByText("Do not show this model")).toBeNull();
     expect(screen.queryByRole("combobox")).toBeNull();
     fireEvent.click(screen.getByRole("menuitemradio", { name: /GPT-5.6 Sol/ }));
     await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
@@ -72,14 +59,12 @@ describe("preset-only picker", () => {
       reasoningLevel: "high",
       serviceTier: "fast",
     });
-    expect(value.onProviderChange).not.toHaveBeenCalled();
-    expect(value.onModelChange).not.toHaveBeenCalled();
     expect(submit).not.toHaveBeenCalled();
   });
   it("preserves the current selection and shows an error when a preset is unavailable", async () => {
     const value = props();
     value.onPresetSelect = vi.fn().mockRejectedValue(new Error("Model unavailable"));
-    render(<QuickModelPicker {...value} />);
+    render(<PresetPicker {...value} />);
     open();
     fireEvent.click(screen.getByRole("menuitemradio", { name: /GPT-5.6 Sol/ }));
     expect((await screen.findByRole("alert")).textContent).toBe("Model unavailable");
@@ -89,14 +74,31 @@ describe("preset-only picker", () => {
   });
   it("opens settings from the empty state without showing the catalog", () => {
     const value = props();
-    render(<QuickModelPicker {...value} presets={[]} />);
+    render(<PresetPicker {...value} presets={[]} />);
     fireEvent.click(screen.getByRole("button", { name: "Choose preset" }));
     expect(screen.queryByRole("menuitemradio")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /Edit presets/ }));
     expect(value.onEdit).toHaveBeenCalledOnce();
   });
+  it("shows what a preset resolves to only when its name is not already that", () => {
+    const value = props();
+    render(
+      <PresetPicker
+        {...value}
+        presets={[
+          { ...presets[0]!, name: "astra med", model: "gpt-6-astra", reasoningLevel: "medium" },
+          { ...presets[1]!, name: "sol · High", model: "sol", reasoningLevel: "high" },
+        ]}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Choose preset" }));
+    // Renamed: the row carries the name plus the combination it applies.
+    expect(screen.getByRole("menuitemradio", { name: "astra med gpt-6-astra · Medium" })).toBeTruthy();
+    // Auto-named: the name already is the combination, so it is not repeated.
+    expect(screen.getByRole("menuitemradio", { name: "sol · High" })).toBeTruthy();
+  });
   it("supports arrow-key navigation in saved order", () => {
-    render(<QuickModelPicker {...props()} />);
+    render(<PresetPicker {...props()} />);
     open();
     const items = screen.getAllByRole("menuitemradio");
     items[0].focus();
@@ -112,7 +114,7 @@ describe("inline preset management", () => {
   it("renames inline without changing the model or submitting the outer form", async () => {
     const value = props();
     const submit = vi.fn();
-    render(<form onSubmit={submit}><QuickModelPicker {...value} /></form>);
+    render(<form onSubmit={submit}><PresetPicker {...value} /></form>);
     open();
     fireEvent.click(screen.getByRole("button", { name: "Rename Opus 5" }));
     const input = screen.getByRole("textbox", { name: "Preset name" });
@@ -129,7 +131,7 @@ describe("inline preset management", () => {
   it("adds a model combination inline with a suggested name", async () => {
     const value = props();
     value.renderModelPicker = (_draft, onChange) => <button type="button" onClick={() => onChange({ providerId: "codex", model: "astra", reasoningLevel: "ultra", serviceTier: "fast" })}>Pick Astra</button>;
-    render(<QuickModelPicker {...value} presets={[]} />);
+    render(<PresetPicker {...value} presets={[]} />);
     fireEvent.click(screen.getByRole("button", { name: "Choose preset" }));
     fireEvent.click(screen.getByRole("button", { name: /Add new preset/ }));
     fireEvent.click(screen.getByRole("button", { name: "Pick Astra" }));
@@ -140,7 +142,7 @@ describe("inline preset management", () => {
 
   it("deletes only the requested preset without selecting it", async () => {
     const value = props();
-    render(<QuickModelPicker {...value} />);
+    render(<PresetPicker {...value} />);
     open();
     fireEvent.click(screen.getByRole("button", { name: "Delete Opus 5" }));
     await waitFor(() => expect(value.onSave).toHaveBeenCalledExactlyOnceWith([presets[1]], 0));
@@ -151,7 +153,7 @@ describe("inline preset management", () => {
     const value = props();
     let reject!: (error: Error) => void;
     value.onSave = vi.fn(() => new Promise<void>((_resolve, fail) => { reject = fail; }));
-    render(<QuickModelPicker {...value} />);
+    render(<PresetPicker {...value} />);
     open();
     fireEvent.click(screen.getByRole("button", { name: "Rename Opus 5" }));
     const input = screen.getByRole("textbox", { name: "Preset name" });
@@ -166,10 +168,10 @@ describe("inline preset management", () => {
 
   it("blocks a stale draft and cancels it without closing the picker", () => {
     const value = props();
-    const view = render(<QuickModelPicker {...value} />);
+    const view = render(<PresetPicker {...value} />);
     open();
     fireEvent.click(screen.getByRole("button", { name: "Rename Opus 5" }));
-    view.rerender(<QuickModelPicker {...value} revision={1} />);
+    view.rerender(<PresetPicker {...value} revision={1} />);
     expect(screen.getByRole("alert").textContent).toContain("Presets changed");
     fireEvent.keyDown(screen.getByRole("textbox", { name: "Preset name" }), { key: "Enter" });
     expect(value.onSave).not.toHaveBeenCalled();

@@ -2,7 +2,7 @@ import { originalProviderLogos } from "../lib/provider-logos";
 import { useEffect } from "react";
 import type { PresetState } from "../lib/presets";
 import { presetStateSchema, presetsSchema } from "../lib/presets.schema";
-const key = "quick-thread:preview-presets:v2";
+const key = "ultra-launcher:preview-presets:v2";
 export const samples: PresetState = { revision: 0, presets: [
   { id: "opus", name: "Opus 5", providerId: "claude", model: "opus-5", reasoningLevel: "xhigh", serviceTier: "default" },
   { id: "sol", name: "GPT-5.6 Sol", providerId: "codex", model: "gpt-5.6-sol", reasoningLevel: "high", serviceTier: "default" },

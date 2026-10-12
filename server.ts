@@ -1,32 +1,13 @@
 import { PRESETS_CHANNEL } from "./lib/presets";
 import { presetStateSchema, presetsSchema } from "./lib/presets.schema";
 import { createPresetStore } from "./lib/preset-store";
-import { createSelectionStore, selectedPresetSchema, SELECTION_CHANNEL } from "./lib/selection-store";
+import { createSelectionStore, selectedPresetSchema } from "./lib/selection-store";
+import { SELECTION_CHANNEL } from "./lib/selection";
 import { resolveDefaultPresets, type Catalog, type CatalogModel } from "./lib/default-presets";
-// bb-plugin-quick-thread — backend entry.
-//
-// Two jobs:
-//
-// 1. `create_thread` RPC: take the NewThreadRequest that the frontend's
-//    NewThreadComposer produces and create the thread with it. The composer
-//    resolves every selection (project, environment, provider/model,
-//    permission mode, prompt input); this handler just forwards it to
-//    bb.sdk.threads.spawn, which fills in `origin: "plugin"` /
-//    `originPluginId` so quick-created threads stay attributed to this plugin.
-//
-// 2. Free Ctrl/Cmd+N for the dialog. In the desktop app BB's native
-//    "New Thread" menu item carries the host's `thread.new` keybinding, which
-//    defaults to Mod+N on desktop. Electron consumes menu accelerators before
-//    the renderer sees the keydown, so the overlay's listener never fires.
-//    The fix is to move `thread.new` to its web-only default (Mod+Shift+O) via
-//    a keybinding override; the desktop menu re-reads accelerators from system
-//    config, so this takes effect without a restart. The plugin only ever
-//    writes an override it created itself and restores it on release.
-import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
+import { defineRpcContract, type BbPluginApi, type NewThreadRequest } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 
-// The composer's NewThreadRequest. Fields we forward verbatim; `.passthrough()`
-// keeps any additive fields a newer BB adds. spawn does the real validation.
+// Forward additive composer fields to BB, which validates the spawn request.
 const newThreadRequestSchema = z
   .object({
     projectId: z.string(),
@@ -53,8 +34,6 @@ export const rpcContract = defineRpcContract({
   },
 });
 
-// --- Hotkey takeover -------------------------------------------------------
-
 const HOST_COMMAND = "thread.new" as const;
 /** BB's own web-only default for `thread.new`; keeps "New thread" reachable. */
 const RELOCATED_SHORTCUT = {
@@ -65,8 +44,6 @@ const RELOCATED_SHORTCUT = {
   alt: false,
   shift: true,
 } as const;
-/** KV marker: set only when we wrote the override, so release never removes a
- * binding the user chose themselves. */
 const CLAIM_KEY = "hotkey.claimed";
 
 type Shortcut = {
@@ -133,16 +110,24 @@ async function claimHotkey(bb: BbPluginApi): Promise<HotkeyStatus> {
   return { state: "free", reason: "claimed" };
 }
 
-/** Undo claimHotkey. Only removes the override we wrote. */
 async function releaseHotkey(bb: BbPluginApi): Promise<HotkeyStatus> {
   const claimed = (await bb.storage.kv.get<boolean>(CLAIM_KEY)) === true;
   if (claimed) {
     const config = await bb.sdk.system.config();
-    await bb.sdk.system.updateKeyboardSettings(
-      config.keybindingOverrides.filter((entry) => entry.command !== HOST_COMMAND),
-    );
+    const ownedOverride = config.keybindingOverrides.find((entry) => {
+      const shortcut = entry.shortcut;
+      return entry.command === HOST_COMMAND && shortcut !== null &&
+        shortcut.key.toLowerCase() === RELOCATED_SHORTCUT.key &&
+        shortcut.mod && shortcut.shift && !shortcut.meta &&
+        !shortcut.control && !shortcut.alt;
+    });
+    if (ownedOverride) {
+      await bb.sdk.system.updateKeyboardSettings(
+        config.keybindingOverrides.filter((entry) => entry !== ownedOverride),
+      );
+      bb.log.info(`restored ${HOST_COMMAND} to BB's default binding`);
+    }
     await bb.storage.kv.delete(CLAIM_KEY);
-    bb.log.info(`restored ${HOST_COMMAND} to BB's default binding`);
   }
   return hotkeyStatus(bb);
 }
@@ -156,15 +141,13 @@ function describe(status: HotkeyStatus): string {
     case "free/user-override":
       return "Ctrl/Cmd+N opens Ultra Launcher (you rebound BB's New thread yourself).";
     case "taken/host-default":
-      return "BB's New thread still owns Ctrl/Cmd+N in the desktop app; run `bb quick-thread claim`.";
+      return "BB's New thread still owns Ctrl/Cmd+N in the desktop app; run `bb ultra-launcher claim`.";
     case "taken/user-override":
       return "You bound BB's New thread to Ctrl/Cmd+N yourself; run `bb settings keyboard set thread.new disabled` to free it.";
     default:
       return `${status.state} (${status.reason})`;
   }
 }
-
-// --- Plugin ---------------------------------------------------------------
 
 export default async function plugin(bb: BbPluginApi) {
   bb.log.info("loaded");
@@ -227,22 +210,22 @@ export default async function plugin(bb: BbPluginApi) {
       return next;
     },
     create_thread: async ({ request }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const thread = await bb.sdk.threads.spawn({ ...(request as any) });
+      // BB validates environment and prompt inputs at the spawn boundary.
+      const thread = await bb.sdk.threads.spawn(request as NewThreadRequest);
       bb.log.info(`created thread ${thread.id}`);
       return { threadId: thread.id };
     },
   });
 
   bb.cli.register({
-    name: "quick-thread",
+    name: "ultra-launcher",
     summary: "Manage Ultra Launcher hotkeys and model presets",
     commands: [
-      { name: "presets", summary: "List saved model presets", usage: "bb quick-thread presets" },
-      { name: "restore-defaults", summary: "Replace saved presets with the recommended defaults", usage: "bb quick-thread restore-defaults" },
-      { name: "status", summary: "Show whether Ctrl/Cmd+N opens Ultra Launcher", usage: "bb quick-thread status" },
-      { name: "claim", summary: "Move BB's New thread off Ctrl/Cmd+N", usage: "bb quick-thread claim" },
-      { name: "release", summary: "Restore BB's default New thread binding", usage: "bb quick-thread release" },
+      { name: "presets", summary: "List saved model presets", usage: "bb ultra-launcher presets" },
+      { name: "restore-defaults", summary: "Replace saved presets with the recommended defaults", usage: "bb ultra-launcher restore-defaults" },
+      { name: "status", summary: "Show whether Ctrl/Cmd+N opens Ultra Launcher", usage: "bb ultra-launcher status" },
+      { name: "claim", summary: "Move BB's New thread off Ctrl/Cmd+N", usage: "bb ultra-launcher claim" },
+      { name: "release", summary: "Restore BB's default New thread binding", usage: "bb ultra-launcher release" },
     ],
     run: async (argv) => {
       const [action = "status"] = argv;
@@ -258,7 +241,7 @@ export default async function plugin(bb: BbPluginApi) {
       if (!["status", "claim", "release"].includes(action)) {
         return {
           exitCode: 2,
-          stderr: "usage: bb quick-thread [status|presets|restore-defaults|claim|release]\n",
+          stderr: "usage: bb ultra-launcher [status|presets|restore-defaults|claim|release]\n",
         };
       }
       const status =
@@ -287,7 +270,4 @@ export default async function plugin(bb: BbPluginApi) {
   });
   void settings.get().then((values) => syncHotkey(values.takeOverNewThreadHotkey));
 
-  bb.onDispose(() => {
-    bb.log.info("disposed");
-  });
 }

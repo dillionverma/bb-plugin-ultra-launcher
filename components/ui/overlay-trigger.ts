@@ -48,37 +48,6 @@ export function blurActiveKeyboardInputWithin(container: Element | null): void {
   activeElement.blur();
 }
 
-export function blurActiveKeyboardInputBeforeOverlayOpen(): void {
-  blurActiveKeyboardInputWithin(null);
-}
-
-export function blurActiveKeyboardInputBeforeOverlayClose(): void {
-  blurActiveKeyboardInputWithin(null);
-}
-
 export function preventOverlayTriggerSelection(event: MouseEvent): void {
   event.preventDefault();
-}
-
-let lastInputModality: "pointer" | "keyboard" = "pointer";
-
-if (typeof document !== "undefined") {
-  document.addEventListener(
-    "keydown",
-    () => {
-      lastInputModality = "keyboard";
-    },
-    { capture: true },
-  );
-  document.addEventListener(
-    "pointerdown",
-    () => {
-      lastInputModality = "pointer";
-    },
-    { capture: true },
-  );
-}
-
-export function isLastInputKeyboard(): boolean {
-  return lastInputModality === "keyboard";
 }

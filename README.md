@@ -1,15 +1,8 @@
 # Ultra Launcher
 
-From thought to running agent. A keyboard-first launcher for BB.
-
-A plugin for [BB](https://getbb.app).
-
-## Highlights
-
-- **Cmd/Ctrl+N.** Open a floating composer without leaving your current thread.
-- **Choose a preset.** Save provider, model, reasoning, and service-tier combinations in your preferred order.
-- **Keep moving.** Enter creates and opens a thread; Cmd/Ctrl+Enter creates it in the background.
-- **Make it yours.** Edit, reorder, and restore model presets from the launcher or plugin settings.
+A keyboard-first thread launcher for [BB](https://getbb.app). Open a composer
+from any screen, choose a saved model preset, and start a thread without losing
+your place.
 
 ## Install
 
@@ -17,46 +10,67 @@ A plugin for [BB](https://getbb.app).
 bb plugin install https://github.com/dillionverma/bb-plugin-ultra-launcher
 ```
 
-Requires BB 0.43+ and a compatible Plugin SDK (see `package.json`).
+Requires BB 0.46+ and Plugin SDK 0.4.87+. No BB patches required.
 
 ## Use
 
-Press **Cmd/Ctrl+N**, select a project and preset, and write your prompt.
+Press **Cmd/Ctrl+N**, choose a project and preset, and write your prompt.
 
-`bb quick-thread status` checks shortcut ownership. `bb quick-thread presets` lists saved presets. The optional host model-picker patch is documented in [core-patches](core-patches/README.md).
+- **Enter** creates a thread and opens it.
+- **Cmd/Ctrl+Enter** creates a thread in the background, with an Open action in the notification.
+- **Shift+Enter** inserts a newline.
+- **Escape** closes the launcher and keeps your draft.
 
-## Designed to stay responsive
+You can also open **Ultra Launcher: new thread** from BB's command palette.
+On compact screens, the launcher becomes a bottom sheet.
 
-The composer is mounted when needed rather than eagerly at startup. Saved presets keep frequent model choices close. No latency benchmark is claimed.
+## Settings
+
+In **Settings → Plugins → Ultra Launcher**, manage presets and the
+**Take over Ctrl/Cmd+N** setting. The launcher also offers preset editing,
+renaming, deletion, and drag reordering. Save up to 30 combinations of provider,
+model, reasoning level, and service tier. The last selected preset is remembered
+across windows. New installations receive presets from available providers.
+
+Hotkey takeover moves BB's New thread shortcut to Cmd/Ctrl+Shift+O. Turning it
+off restores the default if the plugin still owns that binding. User overrides
+are preserved. Release the shortcut before uninstalling with
+`bb ultra-launcher release`.
+
+```sh
+bb ultra-launcher status
+bb ultra-launcher presets
+bb ultra-launcher claim
+bb ultra-launcher release
+bb ultra-launcher restore-defaults
+```
+
+`restore-defaults` replaces your saved presets. Switching presets can reset
+project and environment choices because BB re-seeds its composer; choose the
+preset before changing those fields.
 
 ## Development
 
 ```sh
 npm ci
-npm run typecheck
 npm test
-bb plugin build .
+npm run typecheck
+bb plugin build
+bb plugin install .
+bb plugin dev
 ```
 
-Focused fixes and reproducible bug reports are welcome. Include BB version, platform, and steps to reproduce.
+`npm run preview` shows the preset controls with sample catalogs. Build first
+to generate the styles. Verify thread creation in BB, since the preview does
+not create threads.
 
-## Compatibility
+## Ultra suite
 
-The repository and display name are independent of BB’s persistent plugin identity. The internal ID remains `quick-thread` so existing settings, stored data, CLI commands, and integrations continue to work.
+- [Ultra Cmd+K](https://github.com/dillionverma/bb-plugin-ultra-cmd-k): Command palette.
+- [Ultra Sidebar](https://github.com/dillionverma/bb-plugin-ultra-sidebar): Thread organization.
+- [Vesper](https://github.com/dillionverma/bb-plugin-vesper): Dark theme.
+- [Traces](https://github.com/dillionverma/bb-observability): Agent activity and tool traces.
 
-## The Ultra suite
-
-Built for getting work done across multiple threads, agents, and projects. Install only the pieces you need.
-
-- [Ultra Sidebar](https://github.com/dillionverma/bb-plugin-ultra-sidebar) — Organize parallel work.
-- [Ultra Topbar](https://github.com/dillionverma/bb-plugin-ultra-topbar) — Turn threads into pull requests.
-- [Linear Panel](https://github.com/dillionverma/bb-plugin-linear-panel) — Keep issues beside execution.
-- [Usage Window](https://github.com/dillionverma/bb-plugin-usage-window) — Keep account capacity in view.
-
-## Credits
-
-Based on [Quick Thread by marospekarik](https://github.com/marospekarik/bb-plugin-quick-thread), with a redesigned composer and model presets. Original MIT notice is preserved in LICENSE.
-
-## License
+Based on [Quick Thread by marospekarik](https://github.com/marospekarik/bb-plugin-quick-thread).
 
 MIT. See [LICENSE](LICENSE).

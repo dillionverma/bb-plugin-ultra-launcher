@@ -24,7 +24,7 @@ afterEach(cleanup);
 
 // On stock BB the dialog renders this picker itself, passing only the current
 // selection — there is no host model-picker slot to hand it catalog props.
-describe("ConfiguredModelPicker on an unpatched host", () => {
+describe("stored model presets", () => {
   it("renders the saved presets from the selection alone", async () => {
     const onPresetSelect = vi.fn().mockResolvedValue(undefined);
     render(

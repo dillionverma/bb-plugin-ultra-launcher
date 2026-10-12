@@ -4,17 +4,12 @@ import { PresetProviderLogo } from "./PresetProviderLogo";
 import { usePresets } from "../hooks/usePresets";
 import { EDIT_PRESETS_EVENT } from "../lib/presets";
 import type { PresetSelectionProps } from "../lib/model-picker";
-import { QuickModelPicker } from "./QuickModelPicker";
-/**
- * The presets popover, wired to stored presets. Used both as the patched
- * host's model-picker slot and, on stock BB, directly by the Ultra Launcher
- * dialog (see QuickThreadOverlay).
- */
+import { PresetPicker } from "./PresetPicker";
 export function ConfiguredModelPicker(props: PresetSelectionProps) {
   const store = usePresets();
   const [reorderError, setReorderError] = useState<string | null>(null);
   return (
-    <QuickModelPicker
+    <PresetPicker
       {...props}
       presets={store.state.presets}
       revision={store.state.revision}

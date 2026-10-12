@@ -1,18 +1,25 @@
-From thought to running agent. A keyboard-first launcher for BB.
+Start a thread from anywhere in BB without leaving your current work.
 
-## What you get
+## Use
 
-- **Cmd/Ctrl+N.** Open a floating composer without leaving your current thread.
-- **Choose a preset.** Save provider, model, reasoning, and service-tier combinations in your preferred order.
-- **Keep moving.** Enter creates and opens a thread; Cmd/Ctrl+Enter creates it in the background.
-- **Make it yours.** Edit, reorder, and restore model presets from the launcher or plugin settings.
+Press Cmd/Ctrl+N to open the launcher. Choose a project, model preset, and
+prompt. Enter creates and opens the thread; Cmd/Ctrl+Enter creates it in the
+background and offers an Open notification. Compact screens use a bottom sheet.
+
+## Presets and settings
+
+Save up to 30 provider, model, reasoning, and service-tier combinations.
+Rename, delete, and reorder them in the launcher or plugin settings. The last
+selection is remembered across windows. Restore defaults from your available
+providers when needed.
+
+The hotkey setting moves BB's New thread command to Cmd/Ctrl+Shift+O while the
+launcher owns Cmd/Ctrl+N. User overrides are preserved.
 
 ## Requirements
 
-Press **Cmd/Ctrl+N**, select a project and preset, and write your prompt.
-
-`bb quick-thread status` checks shortcut ownership. `bb quick-thread presets` lists saved presets. The optional host model-picker patch is documented in [core-patches](core-patches/README.md).
-
-## Source
+BB 0.46+ and Plugin SDK 0.4.87+. No host patches or separate services required.
+Changing presets can reset project and environment choices, so choose the
+preset first.
 
 [Source and installation](https://github.com/dillionverma/bb-plugin-ultra-launcher)
