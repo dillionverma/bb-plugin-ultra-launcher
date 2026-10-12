@@ -7,15 +7,10 @@ import { SELECTION_CHANNEL } from "../lib/selection";
 export function useSelectedPreset() {
   const rpc = useRpc<typeof rpcContract>();
   const [presetId, setPresetId] = useState<string | null>(null);
-  const [loaded, setLoaded] = useState(false);
 
   const reload = useCallback(async () => {
-    try {
-      const next = await rpc.call("get_selected_preset", {});
-      setPresetId(next.presetId);
-    } finally {
-      setLoaded(true);
-    }
+    const next = await rpc.call("get_selected_preset", {});
+    setPresetId(next.presetId);
   }, [rpc]);
 
   useEffect(() => {
@@ -31,5 +26,5 @@ export function useSelectedPreset() {
     [rpc],
   );
 
-  return { presetId, loaded, select };
+  return { presetId, select };
 }

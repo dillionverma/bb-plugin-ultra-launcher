@@ -32,7 +32,6 @@ function props(): PresetPickerProps {
     providerId: "claude",
     model: "opus",
     reasoningLevel: "xhigh",
-    supportsServiceTier: false,
     disabled: false,
   };
 }

@@ -4,10 +4,21 @@ import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { effortLabel, isActivePreset, parsePreset, type ModelPreset } from "../lib/presets";
-import type { PresetSelectionProps } from "../lib/model-picker";
 import type { ExperimentalProviderModelPickerValue } from "@get-bb/plugin-sdk";
 import { experimental_Icon as Icon } from "@get-bb/plugin-sdk/app";
 import { cn } from "../lib/utils";
+
+type ReasoningLevel = ExperimentalProviderModelPickerValue["reasoningLevel"];
+type ServiceTier = NonNullable<ExperimentalProviderModelPickerValue["serviceTier"]>;
+
+export interface PresetSelectionProps {
+  providerId: string;
+  model: string;
+  reasoningLevel: ReasoningLevel;
+  serviceTier?: ServiceTier;
+  disabled?: boolean;
+  onPresetSelect(selection: ExperimentalProviderModelPickerValue): Promise<void>;
+}
 
 export interface PresetPickerProps extends PresetSelectionProps {
   presets: ModelPreset[];
@@ -15,7 +26,6 @@ export interface PresetPickerProps extends PresetSelectionProps {
   onReorder(presets: ModelPreset[], revision: number): Promise<void>;
   onSave(presets: ModelPreset[], revision: number): Promise<void>;
   renderModelPicker?(value: ModelPreset, onChange: (value: ExperimentalProviderModelPickerValue) => void, disabled: boolean): ReactNode;
-  defaultOpen?: boolean;
   loading?: boolean;
   loadError?: string | null;
   actionError?: string | null;
@@ -29,7 +39,7 @@ const presetTitle = (preset: ModelPreset) =>
   preset.name === presetSpec(preset) ? preset.name : `${preset.name} — ${presetSpec(preset)}`;
 
 export function PresetPicker(props: PresetPickerProps) {
-  const [open, setOpen] = useState(props.defaultOpen ?? false);
+  const [open, setOpen] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);

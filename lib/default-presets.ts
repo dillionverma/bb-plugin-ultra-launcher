@@ -23,14 +23,14 @@ import type { ModelPreset } from "./presets";
 
 type Level = ModelPreset["reasoningLevel"];
 
-export interface DefaultCandidate {
+interface DefaultCandidate {
   providerId: string;
   /** Catalog ids to try, in order; BB has renamed ids before (e.g. the `[1m]` suffix). */
   models: readonly string[];
   reasoningLevel: Level;
 }
 
-export interface DefaultRung {
+interface DefaultRung {
   /** Stable id so a remembered selection survives a restore. */
   id: string;
   name: string;
@@ -82,13 +82,10 @@ export type Catalog = ReadonlyMap<string, readonly CatalogModel[]>;
  * their first occurrence; an unsupported effort falls back to the model's own
  * default rather than producing a preset the composer would reject.
  */
-export function resolveDefaultPresets(
-  catalog: Catalog,
-  rungs: readonly DefaultRung[] = DEFAULT_RUNGS,
-): ModelPreset[] {
+export function resolveDefaultPresets(catalog: Catalog): ModelPreset[] {
   const seen = new Set<string>();
   const presets: ModelPreset[] = [];
-  for (const rung of rungs) {
+  for (const rung of DEFAULT_RUNGS) {
     const resolved = resolveRung(rung, catalog);
     if (!resolved) continue;
     const key = `${resolved.providerId}::${resolved.model}::${resolved.reasoningLevel}`;

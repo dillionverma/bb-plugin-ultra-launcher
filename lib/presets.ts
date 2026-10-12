@@ -2,12 +2,12 @@
 // schemas live in presets.schema.ts so the app bundle never pulls zod in
 // (~450 KB minified), which delayed every plugin frontend on load.
 export const REASONING_LEVELS = ["none", "low", "medium", "high", "xhigh", "max", "ultra", "ultracode"] as const;
-export type ReasoningLevel = (typeof REASONING_LEVELS)[number];
+type ReasoningLevel = (typeof REASONING_LEVELS)[number];
 export const SERVICE_TIERS = ["default", "fast"] as const;
-export type ServiceTier = (typeof SERVICE_TIERS)[number];
+type ServiceTier = (typeof SERVICE_TIERS)[number];
 export const MAX_PRESETS = 30;
 
-export interface ModelSelection {
+interface ModelSelection {
   providerId: string;
   model: string;
   reasoningLevel: ReasoningLevel;
@@ -32,7 +32,7 @@ function boundedString(value: unknown, max: number, trim: boolean): string | nul
 }
 
 /** Mirrors presets.schema.ts `selectionSchema`; null when the draft is invalid. */
-export function parseSelection(value: unknown): ModelSelection | null {
+function parseSelection(value: unknown): ModelSelection | null {
   if (typeof value !== "object" || value === null) return null;
   const draft = value as Record<string, unknown>;
   const providerId = boundedString(draft.providerId, 256, true);
@@ -74,14 +74,12 @@ export function isActivePreset(
     model: string;
     reasoningLevel: string;
     serviceTier?: string;
-    supportsServiceTier?: boolean;
   },
 ) {
   return (
     preset.providerId === selection.providerId &&
     preset.model === selection.model &&
     preset.reasoningLevel === selection.reasoningLevel &&
-    preset.serviceTier ===
-      (selection.supportsServiceTier === false ? "default" : (selection.serviceTier ?? "default"))
+    preset.serviceTier === (selection.serviceTier ?? "default")
   );
 }

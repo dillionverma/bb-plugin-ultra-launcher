@@ -3,8 +3,7 @@ import { experimental_ProviderModelPicker as ProviderModelPicker } from "@get-bb
 import { PresetProviderLogo } from "./PresetProviderLogo";
 import { usePresets } from "../hooks/usePresets";
 import { EDIT_PRESETS_EVENT } from "../lib/presets";
-import type { PresetSelectionProps } from "../lib/model-picker";
-import { PresetPicker } from "./PresetPicker";
+import { PresetPicker, type PresetSelectionProps } from "./PresetPicker";
 export function ConfiguredModelPicker(props: PresetSelectionProps) {
   const store = usePresets();
   const [reorderError, setReorderError] = useState<string | null>(null);
