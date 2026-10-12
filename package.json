@@ -9,9 +9,9 @@
   },
   "bb": {
     "name": "Ultra Launcher",
-    "description": "Press Cmd/Ctrl+N on any BB screen to start a thread from a saved model preset, then open it or keep working where you are.",
+    "description": "Start a BB thread from any screen with Cmd/Ctrl+N, using saved model presets, and keep working where you are.",
     "branding": {
-      "icon": "MessageSquarePlus"
+      "icon": "./assets/icon.svg"
     },
     "server": "./server.ts",
     "app": "./app.tsx",
@@ -62,11 +62,12 @@
     "README.md",
     "PLUGIN_OVERVIEW.md",
     "LICENSE",
+    "assets/icon.svg",
     "skills",
     "!**/*.test.ts",
     "!**/*.test.tsx"
   ],
-  "description": "Press Cmd/Ctrl+N on any BB screen to start a thread from a saved model preset, then open it or keep working where you are.",
+  "description": "Start a BB thread from any screen with Cmd/Ctrl+N, using saved model presets, and keep working where you are.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/dillionverma/bb-plugin-ultra-launcher.git"
