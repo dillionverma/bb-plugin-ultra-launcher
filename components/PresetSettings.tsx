@@ -8,7 +8,7 @@ import {
 } from "@get-bb/plugin-sdk/app";
 import type { ExperimentalProviderModelPickerValue } from "@get-bb/plugin-sdk";
 import { usePresets } from "../hooks/usePresets";
-import { EDIT_PRESETS_EVENT, effortLabel, parsePreset, tierLabel, type ModelPreset } from "../lib/presets";
+import { EDIT_PRESETS_EVENT, MAX_PRESETS, effortLabel, parsePreset, tierLabel, type ModelPreset } from "../lib/presets";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Field, FieldGroup, FieldLabel } from "./ui/field";
@@ -143,7 +143,7 @@ export function PresetSettings() {
         <>
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs text-muted-foreground">{store.state.presets.length} presets <span className="px-1 opacity-50">·</span> Drag to reorder</p>
-            <Button ref={addRef} type="button" disabled={locked || !providers.length || store.state.presets.length >= 30}
+            <Button ref={addRef} type="button" disabled={locked || !providers.length || store.state.presets.length >= MAX_PRESETS}
               onClick={() => edit({
                 ...(store.state.presets[0] ?? { providerId: providers[0].id, model: "", reasoningLevel: "medium", serviceTier: "default" }),
                 id: crypto.randomUUID(), name: "",

@@ -3,7 +3,7 @@ import { useRef, useState, type ReactNode } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
-import { effortLabel, isActivePreset, parsePreset, type ModelPreset } from "../lib/presets";
+import { MAX_PRESETS, effortLabel, isActivePreset, parsePreset, type ModelPreset } from "../lib/presets";
 import type { ExperimentalProviderModelPickerValue } from "@get-bb/plugin-sdk";
 import { experimental_Icon as Icon } from "@get-bb/plugin-sdk/app";
 import { cn } from "../lib/utils";
@@ -267,7 +267,7 @@ export function PresetPicker(props: PresetPickerProps) {
           </p>
         ) : null}
         <div className="mt-1 border-t border-border/60 pt-1">
-          {editor?.isNew ? inlineEditor() : <button type="button" disabled={busy || dragging || !!editor || props.presets.length >= 30} onClick={() => edit()} className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm hover:bg-state-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40"><Icon name="Plus" className="size-4" />Add new preset<span className="ml-auto text-xs text-muted-foreground">{props.presets.length >= 30 ? "30 preset limit" : "Model + name"}</span></button>}
+          {editor?.isNew ? inlineEditor() : <button type="button" disabled={busy || dragging || !!editor || props.presets.length >= MAX_PRESETS} onClick={() => edit()} className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm hover:bg-state-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40"><Icon name="Plus" className="size-4" />Add new preset<span className="ml-auto text-xs text-muted-foreground">{props.presets.length >= MAX_PRESETS ? `${MAX_PRESETS} preset limit` : "Model + name"}</span></button>}
           <button
             type="button"
             disabled={busy || dragging || !!editor}
