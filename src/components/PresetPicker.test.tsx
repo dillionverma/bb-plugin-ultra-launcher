@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { PresetPicker, type PresetPickerProps } from "./PresetPicker";
 import type { ModelPreset } from "../lib/presets";
-import { mockViewport } from "../test/viewport";
+import { mockViewport } from "../../test/viewport";
 const presets: ModelPreset[] = [
   {
     id: "opus",

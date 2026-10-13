@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import type { ExperimentalProviderModelPickerProps } from "@get-bb/plugin-sdk/app";
 import { PresetSettings, PresetSettingsOverlay } from "./PresetSettings";
 import { EDIT_PRESETS_EVENT, type PresetState } from "../lib/presets";
-import { mockViewport } from "../test/viewport";
+import { mockViewport } from "../../test/viewport";
 const mocks = vi.hoisted(() => ({
   state: { revision: 0, presets: [] } as PresetState,
   save: vi.fn(),

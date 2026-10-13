@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
-import { mockViewport } from "../test/viewport";
+import { mockViewport } from "../../test/viewport";
 
 afterEach(() => {
   cleanup();

@@ -16,11 +16,7 @@
     "skipLibCheck": false
   },
   "include": [
-    "server.ts",
-    "app.tsx",
-    "components",
-    "lib",
-    "hooks",
-    "server.test.ts"
+    "src",
+    "test"
   ]
 }

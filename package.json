@@ -13,8 +13,8 @@
     "branding": {
       "icon": "./assets/icon.svg"
     },
-    "server": "./server.ts",
-    "app": "./app.tsx",
+    "server": "./src/server.ts",
+    "app": "./src/app.tsx",
     "skills": [
       "skills"
     ]
@@ -53,11 +53,7 @@
     "test": "vitest run"
   },
   "files": [
-    "app.tsx",
-    "server.ts",
-    "components",
-    "hooks",
-    "lib",
+    "src",
     "dist",
     "README.md",
     "PLUGIN_OVERVIEW.md",
