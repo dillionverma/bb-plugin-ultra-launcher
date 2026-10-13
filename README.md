@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <img src="assets/readme/demo.gif" alt="Animated demo of Ultra Launcher choosing a demo project, writing a prompt and opening saved presets. All projects and threads shown are demo data." width="960" />
+  <img src="assets/readme/demo.gif" alt="Animated dark-mode demo of Ultra Launcher choosing a demo project, writing a prompt and opening saved presets, against the macOS Golden Gate wallpaper. All projects and threads shown are demo data." width="1200" />
 </p>
 
 Ultra Launcher opens a floating composer on any BB screen with ⌘N (Ctrl+N on Windows and Linux). Choose a project and a saved model preset, write the prompt, and start the thread without leaving the one you are in.
